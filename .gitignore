@@ -1,0 +1,11 @@
+build/*
+**/cache
+**/vendor
+**/node_modules
+*.log
+strace.txt
+.vscode
+.idea
+web.magic.mgc
+!.gitkeep
+!.gitignore
