@@ -6,6 +6,6 @@ build/*
 strace.txt
 .vscode
 .idea
-web.magic.mgc
+./web.magic.mgc
 !.gitkeep
 !.gitignore
