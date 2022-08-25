@@ -84,7 +84,7 @@ void serverRun(struct Options options) {
         die("listen");
     }
 
-    consoleDebug(GREEN "Server listening on %s:%d ..." RESET "\n\n", inet_ntoa(socketAddress.sin_addr), htons(socketAddress.sin_port));
+    consoleDebug(GREEN "Server listening on http://%s:%d ..." RESET "\n\n", inet_ntoa(socketAddress.sin_addr), htons(socketAddress.sin_port));
 
     waitAndAccept(socketServerFd, &socketAddress, socketAddressLen);
 

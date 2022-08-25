@@ -142,8 +142,8 @@ int getLoggerFileDescriptor() {
 
 void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int codeLine, char *message, ...) {
 
-    char format[600];
-    char messageWithArguments[200];
+    char format[1024];
+    char messageWithArguments[600];
     char datetime[LOGGER_DATETIME_FORMAT_MAX];
 
     sprintf(format, "%s | %s | %s:%d", getLoggerCurrentDatetime(datetime), loggerLevelToStr(level), codeFileName, codeLine);
