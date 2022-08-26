@@ -42,7 +42,7 @@ The use of this library can be seen in:
 
 ## Compilation/Installation
 
-To compile the server you can use the MAKEFILE that is in the root of the project. The installation is done in one step, which is the compilation of the server, the generation of the executable file and it execution by default.
+To compile the server you can use the MAKEFILE that is in the root of the project. The installation is done in one step, which is the compilation of the server, the generation of the executable file and running the program with the default options.
 
 ```
 make
