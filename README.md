@@ -63,7 +63,7 @@ Usage: bin/ubserver [ options ]
 
 ```
 ##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/hello
-Great results with a single Hello World, compared to the next test where you have to create the `struct Response` and generate the `headers` dynamically and `send` a large HTML template file.
+Great results with a single Hello World, compared to the next test where i have to create the `struct Response`, load mime types, generate the `headers` dynamically (although some headers are hard coded) and `send` a large HTML file.
 
 ```
 Running 30s test @ http://127.0.0.1:3001/hello
@@ -78,6 +78,7 @@ Transfer/sec:      2.05MB
 ```
 
 ##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/index.html
+I am not very happy with these results.
 
 ```
 Running 30s test @ http://127.0.0.1:3001/index.html
@@ -93,12 +94,13 @@ Transfer/sec:      2.93MB
 
 # TODO
 
-* [ ] Reduce the number of times I use dynamic memory with malloc
+* [ ] Decouple logging from main program (thread and queue)
 * [ ] Add support for keep-alive connections
-* [ ] Add optional example for fork and thread
-* [ ] Add support for HTTPS
+* [ ] Add epoll alternative example with fork and thread
+* [ ] Reduce the number of times i use dynamic memory with malloc
 * [ ] Add support for compression
-* [ ] Add more optimizations    
+* [ ] Add more optimizations
+* [ ] Add support for HTTPS
 * [ ] Add tests
 
 # References
