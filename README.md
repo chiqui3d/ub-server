@@ -10,6 +10,10 @@ Currently, I have downloaded a free HTML template and put it directly into the `
 
 But as I said before, although it works, it still requires a lot of validation, and it is possible that it has some errors when dealing with some headers or options.
 
+I would also like to reduce the number of times I use dynamic memory with `malloc`. As a newbie, I'm a bit of a mess when it comes to choosing one option or the other when assigning chars.
+
+Someone posted on Reddit some good recommendations to follow in C [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
+
 ## Directory Structure
 
 * **bin**: Contains the executable file of the server. These are generated once you compile the program.
@@ -88,6 +92,7 @@ Transfer/sec:      2.93MB
 
 # TODO
 
+* [ ] Reduce the number of times I use dynamic memory with malloc
 * [ ] Add support for keep-alive connections
 * [ ] Add optional example for fork and thread
 * [ ] Add support for HTTPS
