@@ -96,7 +96,7 @@ Transfer/sec:      2.93MB
 
 * [ ] Decouple logging from main program (thread and queue)
 * [ ] Add support for keep-alive connections
-* [ ] Add epoll alternative example with fork and thread
+* [ ] Add fork and thread alternative example
 * [ ] Reduce the number of times i use dynamic memory with malloc
 * [ ] Add support for compression
 * [ ] Add more optimizations
