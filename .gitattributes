@@ -1,0 +1,3 @@
+*.css ub-server-detectable=false
+*.js ub-server-detectable=false
+*.html ub-server-detectable=false
