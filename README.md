@@ -24,12 +24,12 @@ But as I said before, although it works, it still requires a lot of validation, 
 Currently the only dependency is the magic library to read the MIME type of a file. Installation is simple for Ubuntu:
 
 ```
-    sudo apt install libmagic-dev
+sudo apt install libmagic-dev
 ```
 Then include the flag for the compiler as you can see the MAKEFILE
 
 ```
-    -lmagic
+-lmagic
 ```
 The use of this library can be seen in:
 
@@ -41,9 +41,9 @@ The use of this library can be seen in:
 To compile the server you can use the MAKEFILE that is in the root of the project. The compilation is done in one step, which is the compilation of the server, the generation of the executable file and it execution by default.
 
 ```
-    make
+make
 ```
-You can exit its execution with `CTRL + C` and execute again it with its parameters.
+You can exit its execution with `CTRL + C` and execute again it with its options.
 
 ## bin/ubserver --help
 
@@ -88,11 +88,12 @@ Transfer/sec:      2.93MB
 
 # TODO
 
-* [ ] Add tests
-* [ ] Add more documentation
-* [ ] Add more examples
+* [ ] Add support for keep-alive connections
+* [ ] Add optional example for fork and thread
+* [ ] Add support for HTTPS
+* [ ] Add support for compression
 * [ ] Add more optimizations    
-* [ ] Add more features
+* [ ] Add tests
 
 # References
 
