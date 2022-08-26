@@ -127,12 +127,11 @@ int getLoggerFileDescriptor() {
         }
 
         strcpy(LOGGER.fileName, loggerFileName);
-        // https://stackoverflow.com/questions/164053/should-log-file-streams-be-opened-closed-on-each-write-or-kept-open-during-a-des
         LOGGER.fileFd = open(loggerFullPath, O_APPEND | O_CREAT | O_WRONLY, DEFAULT_LOGGER_PERMISSION_MODE);
         if (LOGGER.fileFd == -1) {
             die("fopen %s", loggerFullPath);
         }
-        // makeFileDescriptorNonBlocking(LOGGER.fileFd);
+        // makeSocketNonBlocking(LOGGER.fileFd);
     }
 
     return LOGGER.fileFd;
