@@ -22,7 +22,7 @@ static const char *usageTemplate =
     "  -p, --port PORT           Bind to specified port (by default, 3001)\n"
     "  -d, --html-dir DIR        Open html and assets from specified directory (by default <public> directory)\n"
     "  -l, --logger              Active logs for send messages to log file (by default logs send to stderr)\n"
-    "  --logger-path             Absolute path to directory (by default /var/log/ud-server/)\n"
+    "  --logger-path             Absolute path to directory (by default /var/log/ub-server/)\n"
     "  -h, --help                Print this usage information\n";
 
 static struct option longOptions[] = {

@@ -179,16 +179,15 @@ size_t sendAll(int fd, const void *buffer, size_t count) {
     while (left_to_write > 0) {
         size_t written = send(fd, buffer, count, 0);
         if (written == -1) {
-            /* An error occurred; bail. */
+            // An error occurred
             return -1;
         } else {
-            /* Keep count of how much more we need to write. */
+            // Keep count of how much more we need to write.
             left_to_write -= written;
         }
     }
-    /* We should have written no more than COUNT bytes! */
-    // assert(left_to_write == 0);
-    /* The number of bytes written is exactly COUNT. */
+    // We should have written no more than COUNT bytes!
+    // The number of bytes written is exactly COUNT
     return count;
 }
 

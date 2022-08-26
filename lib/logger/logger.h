@@ -13,7 +13,7 @@
 #define LOGGER_CURRENT_FILE_DATE_FORMAT "%Y-%m-%d"
 
 
-#define DEFAULT_LOGGER_FILE_PATH "/var/log/ud-server/"
+#define DEFAULT_LOGGER_FILE_PATH "/var/log/ub-server/"
 #define DEFAULT_LOGGER_OPEN_MODE "a+"
 #define DEFAULT_LOGGER_PERMISSION_MODE 0755
 
@@ -50,8 +50,6 @@ char *getLoggerFileName(char *fileName);
 char *getLoggerFileCurrentDate(char *date);
 char *getLoggerCurrentDatetime(char *datetime);
 int getLoggerFileDescriptor();
-
-int makeFileDescriptorNonBlocking(int fd);
 
 int mkpath(const char *file_path, mode_t mode);
 

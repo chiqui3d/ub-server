@@ -1,12 +1,10 @@
-#include <errno.h>
-#include <fcntl.h>
-#include <fcntl.h> // for fcntl() nonblocking socket
-#include <stdio.h>
-#include <stdlib.h>
+#include <errno.h> // for errno
+#include <fcntl.h> // for open() nonblocking socket
+#include <stdio.h> // for sprintf()
 #include <string.h>
-#include <sys/wait.h>
-#include <time.h>
 #include <unistd.h>
+#include <time.h>
+#include <sys/wait.h>
 
 #include "../die/die.h"
 #include "./logger.h"
@@ -130,7 +128,7 @@ int getLoggerFileDescriptor() {
 
         strcpy(LOGGER.fileName, loggerFileName);
         // https://stackoverflow.com/questions/164053/should-log-file-streams-be-opened-closed-on-each-write-or-kept-open-during-a-des
-        LOGGER.fileFd = open(loggerFullPath, O_APPEND | O_CREAT | O_WRONLY);
+        LOGGER.fileFd = open(loggerFullPath, O_APPEND | O_CREAT | O_WRONLY, DEFAULT_LOGGER_PERMISSION_MODE);
         if (LOGGER.fileFd == -1) {
             die("fopen %s", loggerFullPath);
         }
@@ -169,23 +167,4 @@ void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int co
     if (send == -1) {
         die("Error writing to logger file");
     }
-}
-
-int makeFileDescriptorNonBlocking(int fd) {
-    int flags, s;
-
-    flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        perror("fcntl");
-        return -1;
-    }
-
-    flags |= O_NONBLOCK;
-    s = fcntl(fd, F_SETFL, flags);
-    if (s == -1) {
-        perror("fcntl");
-        return -1;
-    }
-
-    return 0;
 }

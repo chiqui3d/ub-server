@@ -9,7 +9,10 @@
 #define IS_DEBUG 1
 #endif
 
+int makeSocketNonBlocking(int fd);
+
 char *toLower(char *str, size_t len);
 char *toUpper(char *str, size_t len);
+
 
 #endif // HELPER_H

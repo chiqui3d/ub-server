@@ -3,7 +3,6 @@
 #include <sys/socket.h> // for socket()
 #include <unistd.h>     // for close()
 // #include <netinet/in.h> // for sockaddr_in
-#include <fcntl.h>       // for fcntl() nonblocking socket
 #include <netinet/tcp.h> // for TCP_NODELAY
 #include <time.h>        // for time()
 
@@ -12,25 +11,7 @@
 #include "../lib/logger/logger.h"
 #include "server.h"
 #include "server_accept_epoll.h"
-
-int makeSocketNonBlocking(int fd) {
-    int flags, s;
-
-    flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        perror("fcntl");
-        return -1;
-    }
-
-    flags |= O_NONBLOCK;
-    s = fcntl(fd, F_SETFL, flags);
-    if (s == -1) {
-        perror("fcntl");
-        return -1;
-    }
-
-    return 0;
-}
+#include "helper.h"
 
 void serverRun(struct Options options) {
 
