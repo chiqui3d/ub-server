@@ -63,6 +63,7 @@ Usage: bin/ubserver [ options ]
 
 ```
 ##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/hello
+Great results with a single Hello World, compared to the next test where you have to create the `struct Response` and generate the `headers` dynamically and `send` a large HTML template file.
 
 ```
 Running 30s test @ http://127.0.0.1:3001/hello
