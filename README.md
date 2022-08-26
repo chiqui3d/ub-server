@@ -1,10 +1,10 @@
-# Undefined Behavior Server
+# Undefined Behavior Server 👀
 
-**Undefined Behavior** is the result I have had throughout the development and learning of this simple HTTP server in C 👀. Currently I still have a lot more to apply, optimize and learn. Currently, according to **Valgrind** (`valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`) I don't have any memory leaks..., but it is clear that a web server is quite complex, especially because of the amount of specifications it contains, along with the optimizations that this implies to support the maximum number of connections.
+**Undefined Behavior** is the result I have had throughout the development and learning of this simple HTTP server in C. Currently I still have a lot more to apply, optimize and learn. Currently, according to **Valgrind** (`valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`) I don't have any memory leaks..., but it is clear that a web server is quite complex, especially because of the amount of specifications it contains, along with the optimizations that this implies to support the maximum number of connections.
 
 Currently, it is being developed with **Epoll** to accept client connections via event notifications, in which the file descriptors of each client/connection are included for later use. All this can be seen in https://github.com/chiqui3d/ud-server/blob/main/src/server_accept_epoll.c
 
-My intention is to create another `server_accept_*.c` for `fork` and another for `thread`  and test the differences with [wrk](https://github.com/wg/wrk), to learn along the way.
+My intention is to create another `server_accept_*.c` for `fork` and another for `thread` and test the differences with [wrk](https://github.com/wg/wrk), to learn along the way.
 
 Currently, I have downloaded a free HTML template and put it directly into the `public` directory to test it out, and it seems to work quite well.
 
@@ -97,7 +97,7 @@ Transfer/sec:      2.93MB
 
 # References
 
-* Linux Advanced programming book
+* [Advanced Linux Programming book](https://mentorembedded.github.io/advancedlinuxprogramming/)
 * https://stackoverflow.com/questions/tagged/c
 * https://www.reddit.com/r/C_Programming/
 
