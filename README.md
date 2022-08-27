@@ -112,8 +112,8 @@ Transfer/sec:      2.93MB
 
 I would like to read the following books, some of which I have used for reference, but have not completed.
 
-* The C Programming Language by Brian W. Kernighan and Dennis M. Ritchie *(Initiated)*
-* The Linux Programming Interface *(Initiated)*
-* Learn C the Hard Way *(Initiated)*
+* The C Programming Language by Brian W. Kernighan and Dennis M. Ritchie 
+* The Linux Programming Interface
+* Learn C the Hard Way
 * Advanced Programming in the UNIX Environment
 * UNIX Network Programming
