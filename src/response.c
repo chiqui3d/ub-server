@@ -8,7 +8,6 @@
 #include <sys/socket.h>   // for send()
 #include <unistd.h>       // for close()
 
-
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "response.h"
@@ -35,7 +34,7 @@ void freeResponse(struct Response *response) {
 
 void sendResponse(struct Response *response, int clientFd) {
 
-    if(response->bodyFd == -1){
+    if (response->bodyFd == -1) {
         char responseBuffer[1024];
         if (response->statusCode == HTTP_STATUS_NOT_FOUND) {
             // TODO: Change absolutePath to request->path
@@ -56,12 +55,12 @@ void sendResponse(struct Response *response, int clientFd) {
         die("getcwd() error");
     }
     /**
-    * Information about magic library
-    *  http://cweiske.de/tagebuch/custom-magic-db.htm
-    *  https://manpages.debian.org/testing/libmagic-dev/libmagic.3.en.html
-    *  /usr/lib/file/magic.mgc
-    *  /usr/share/misc/magic.mgc
-    **/
+     * Information about magic library
+     *  http://cweiske.de/tagebuch/custom-magic-db.htm
+     *  https://manpages.debian.org/testing/libmagic-dev/libmagic.3.en.html
+     *  /usr/lib/file/magic.mgc
+     *  /usr/share/misc/magic.mgc
+     **/
     strcat(cwd, "/include/web.magic.mgc:/usr/share/misc/magic.mgc");
     if (magic_load(magic, cwd) != 0) {
         magic_close(magic);
@@ -108,7 +107,6 @@ void sendResponse(struct Response *response, int clientFd) {
     close(response->bodyFd);
 }
 
-
 struct Response *makeResponse(struct Request *request, char *htmlDir) {
     struct Response *response = malloc(sizeof(struct Response));
     if (response == NULL) {
@@ -118,7 +116,7 @@ struct Response *makeResponse(struct Request *request, char *htmlDir) {
     memset(response, 0, sizeof(struct Response));
 
     // TODO: Separate version from protocol
-    response->protocolVersion = "HTTP/1.1";
+    response->protocolVersion = request->protocolVersion;
 
     char path[1024];
     bool isIndex = false;
@@ -180,6 +178,10 @@ size_t sendAll(int fd, const void *buffer, size_t count) {
         size_t written = send(fd, buffer, count, 0);
         if (written == -1) {
             // An error occurred
+            if (errno == EINTR) {
+                // The call was interrupted by a signal, try again
+                return 0;
+            }
             return -1;
         } else {
             // Keep count of how much more we need to write.
@@ -189,6 +191,12 @@ size_t sendAll(int fd, const void *buffer, size_t count) {
     // We should have written no more than COUNT bytes!
     // The number of bytes written is exactly COUNT
     return count;
+}
+
+void unsupportedProtocolResponse(int clientFd, char *protocolVersion) {
+    char responseBuffer[1024];
+    snprintf(responseBuffer, 1024, versionNotSupportedResponseTemplate, protocolVersion);
+    sendAll(clientFd, responseBuffer, strlen(responseBuffer));
 }
 
 void helloResponse(int clientFd) {

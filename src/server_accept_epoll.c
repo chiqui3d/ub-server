@@ -83,6 +83,11 @@ void waitAndAccept(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                     // consoleDebug("Buffer:\n%s", buffer);
                     struct Request *request = makeRequest(buffer, clientFd);
                     // Hardcoded for now
+                    if (strncmp(request->protocolVersion, "HTTP/1.1", 8) != 0) {
+                        unsupportedProtocolResponse(clientFd, request->protocolVersion);
+                        freeRequest(request);
+                        continue;
+                    }
                     if (strcmp(request->path, "/hello") == 0) {
                         helloResponse(clientFd);
                         freeRequest(request);
@@ -134,7 +139,6 @@ void acceptNewConnections(int epollFd, int socketServerFd) {
             if (errno != EAGAIN || errno != EWOULDBLOCK) {
                 die("accept() failed");
             }
-            errno = 0;
             break;
         }
         if (clientFd >= MAX_CONNECTIONS) {
@@ -169,7 +173,6 @@ char *readRequest(char *buffer, int epollFd, int *clientFd) {
                 logError("recv() request failed");
                 doneForClose = 1;
             }
-            errno = 0;
             break;
         } else if (bytesRead == 0) {
             doneForClose = 1;

@@ -9,9 +9,9 @@
 #include "../lib/color/color.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
+#include "helper.h"
 #include "server.h"
 #include "server_accept_epoll.h"
-#include "helper.h"
 
 void serverRun(struct Options options) {
 
@@ -27,17 +27,23 @@ void serverRun(struct Options options) {
         die("setsockopt SO_REUSEADDR");
     }
 
-    /*     struct timeval timeout;
+    /*
+        struct timeval timeout;
         timeout.tv_sec  = 3;  // after 7 seconds connect() will timeout
         timeout.tv_usec = 0;
-        setsockopt(socketServerFd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)); */
-
-    /*  int enableTCP= 1;
-    // disable Nagle since we buffer everything ourselves
-    if (setsockopt(socketServerFd, IPPROTO_TCP, TCP_NODELAY, &enableTCP, sizeof enableTCP) == -1) {
-            die("setsockopt TCP_NODELAY");
-        }
+        setsockopt(socketServerFd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
     */
+
+    // https://baus.net/on-tcp_cork/
+    int enableTCP_NO_DELAY = 1;
+    if (setsockopt(socketServerFd, IPPROTO_TCP, TCP_NODELAY, &enableTCP_NO_DELAY, sizeof(enableTCP_NO_DELAY)) == -1) {
+        die("setsockopt TCP_NODELAY");
+    }
+
+    int enableTCP_CORK = 1;
+    if (setsockopt(socketServerFd, IPPROTO_TCP, TCP_CORK, &enableTCP_CORK, sizeof(enableTCP_CORK)) == -1) {
+        die("setsockopt TCP_CORK");
+    }
 
     struct hostent *localHostName = gethostbyname(options.address);
     if (localHostName == NULL) {

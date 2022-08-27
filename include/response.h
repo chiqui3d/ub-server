@@ -29,7 +29,7 @@ void sendResponse(struct Response *response, int clientFd);
 size_t sendAll(int fd, const void *buffer, size_t count);
 
 void helloResponse(int clientFd);
-
+void unsupportedProtocolResponse(int clientFd, char *protocolVersion);
 
 static char *helloResponseTemplate =
     "HTTP/1.1 200 OK\n"
@@ -55,6 +55,16 @@ static char *badRequestResponseTemplate =
     " </body>\n"
     "</html>\n";
 
+static char *versionNotSupportedResponseTemplate =
+    "HTTP/1.1 505 HTTP Version Not Supported\n"
+    "Content-type: text/html; charset=UTF-8\n"
+    "Connection: close\n"
+    "\n"
+    "<html>\n"
+    " <body>\n"
+    "  <h1>HTTP Version <%s> Not Supported</h1>\n"
+    " </body>\n"
+    "</html>\n";
 
 static char *notFoundResponseTemplate =
     "HTTP/1.1 404 Not Found\n"

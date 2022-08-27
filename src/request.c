@@ -8,27 +8,6 @@
 #include "request.h"
 #include "helper.h"
 
-
-// https://stackoverflow.com/questions/15433188/what-is-the-difference-between-r-n-r-and-n
-// https://stackoverflow.com/questions/22077802/simple-c-example-of-doing-an-http-post-and-consuming-the-response
-// https://www.rfc-editor.org/rfc/rfc2616#section-2.2
-// https://stackoverflow.com/questions/6686261/what-at-the-bare-minimum-is-required-for-an-http-request
-// curl -X POST localhost:3001 --header "Content-Type: application/json" --header 'cache-control: no-cache' --data '{"productId": 123456, "quantity": 100}'
-// curl -X POST localhost:3001 --header "Content-Type: text/plain" --header 'cache-control: no-cache' --data-binary "Yes23"
-// https://reqbin.com/req/python/c-d2nzjn3z/curl-post-body#:~:text=You%20can%20pass%20the%20body,%2Dbinary%20command%2Dline%20option.
-
-// https://stackoverflow.com/questions/8739189/search-for-a-newline-charactor-or-cr-lf-characters
-// https://stackoverflow.com/questions/5757290/http-header-line-break-style
-// https://stackoverflow.com/questions/30472018/how-to-extract-data-from-http-header-in-c
-// https://www.jmarshall.com/easy/http/#http1.1c1
-// https://stackoverflow.com/questions/26811822/is-it-necessary-to-check-both-r-n-r-n-and-n-n-as-http-header-content-separ
-// https://stackoverflow.com/questions/8786084/how-to-parse-http-headers-in-c
-// https://stackoverflow.com/questions/6324167/do-browsers-send-r-n-or-n-or-does-it-depend-on-the-browser
-// https://stackoverflow.com/questions/14926062/detecting-end-of-http-header-with-r-n-r-n
-// https://stackoverflow.com/questions/16243118/differ-between-header-and-content-of-http-server-response-sockets
-// https://stackoverflow.com/questions/67509709/is-recvbufsize-guaranteed-to-receive-all-the-data-if-sended-data-is-smaller-th
-// https://stackoverflow.com/questions/16990746/isnt-recv-in-c-socket-programming-blocking
-
 const char *methodToStr(enum Method method) {
     return methodsList[method];
 }
@@ -137,7 +116,7 @@ struct Request *makeRequest(char *buffer, int clientFd) {
     // buffer without first line and CRLF
     buffer += firstLineLength + 2;
 
-    char method[10], path[100], protocolVersion[10];
+    char method[10], path[100], protocolVersion[9];
 
     sscanf(requestLine, "%s %s %s", method, path, protocolVersion);
 

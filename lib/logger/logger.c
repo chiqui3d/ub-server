@@ -162,19 +162,19 @@ void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int co
         lenFullMessage++;
     }
 
-    if (writeAll(fileFd, fullMessage, lenFullMessage) == -1) {
+   if (writeAll(fileFd, fullMessage, lenFullMessage) == -1) {
         die("Error writing to logger file");
     }
 }
 
 /**
  * @brief Write all the bytes of a buffer to a file descriptor, not writing more than necessary.
- * 
- * @param fd 
- * @param buffer 
- * @param count 
- * 
- * @return size_t 
+ *
+ * @param fd
+ * @param buffer
+ * @param count
+ *
+ * @return size_t
  */
 size_t writeAll(int fd, const void *buffer, size_t count) {
     size_t left_to_write = count;
@@ -182,6 +182,10 @@ size_t writeAll(int fd, const void *buffer, size_t count) {
         size_t written = write(fd, buffer, count);
         if (written == -1) {
             // An error occurred
+            if (errno == EINTR) {
+                // The call was interrupted by a signal
+               return 0;
+            } 
             return -1;
         } else {
             // Keep count of how much more we need to write.
