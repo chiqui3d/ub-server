@@ -17,8 +17,10 @@
 #define DEFAULT_LOGGER_OPEN_MODE "a+"
 #define DEFAULT_LOGGER_PERMISSION_MODE 0755
 
+#define LOGGER_MESSAGE_MAX 1024
 #define LOGGER_PATH_MAX 1024
-#define LOGGER_FILE_NAME_MAX 256
+#define LOGGER_FILE_NAME_MAX 15 // 2020-08-27.log 15 chars
+
 
 #define LOGGER_DATE_FORMAT_MAX 11     // 10 + 1
 #define LOGGER_DATETIME_FORMAT_MAX 26 // 25 + 1
@@ -42,7 +44,6 @@ struct Logger {
 extern struct Logger LOGGER;
 
 const char *loggerLevelToStr(enum LOG_LEVEL level);
-
 char *getLoggerFullPath(char *loggerFullPath);
 char *getLoggerCurrentFullPath(char *loggerFullPath);
 char *getLoggerFileName(char *fileName);
@@ -52,6 +53,8 @@ char *getLoggerCurrentDatetime(char *datetime);
 int getLoggerFileDescriptor();
 
 int mkpath(const char *file_path, mode_t mode);
+size_t writeAll(int fd, const void *buffer, size_t count);
+
 
 void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int codeLine, char *message, ...);
 

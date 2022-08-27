@@ -2,9 +2,9 @@
 #include <fcntl.h> // for open() nonblocking socket
 #include <stdio.h> // for sprintf()
 #include <string.h>
-#include <unistd.h>
-#include <time.h>
 #include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "../die/die.h"
 #include "./logger.h"
@@ -31,31 +31,21 @@ char *getLoggerCurrentDatetime(char *datetime) {
 
 char *getLoggerFullPath(char *loggerFullPath) {
 
-    strcpy(loggerFullPath, LOGGER.path);
-    strcat(loggerFullPath, LOGGER.fileName);
+    snprintf(loggerFullPath, LOGGER_PATH_MAX, "%s%s", LOGGER.path, LOGGER.fileName);
 
     return loggerFullPath;
 }
 
 char *getLoggerCurrentFullPath(char *loggerFullPath) {
-
-    strcpy(loggerFullPath, LOGGER.path);
-
     char loggerFileName[LOGGER_FILE_NAME_MAX];
-
-    strcat(loggerFullPath, getLoggerFileName(loggerFileName));
+    snprintf(loggerFullPath, LOGGER_PATH_MAX, "%s%s", LOGGER.path, getLoggerFileName(loggerFileName));
 
     return loggerFullPath;
 }
 
 char *getLoggerFileName(char *loggerFileName) {
-    char loggerDateName[LOGGER_DATE_FORMAT_MAX];
-
-    // sprintf(loggerFileName, "%s.log", date);
-    getLoggerFileCurrentDate(loggerDateName);
-
-    strcpy(loggerFileName, loggerDateName);
-    strcat(loggerFileName, ".log");
+    char loggerDate[LOGGER_DATE_FORMAT_MAX];
+    snprintf(loggerFileName, LOGGER_FILE_NAME_MAX, "%s.log", getLoggerFileCurrentDate(loggerDate));
 
     return loggerFileName;
 }
@@ -111,11 +101,11 @@ int getLoggerFileDescriptor() {
         return LOGGER.fileFd;
     }
 
-    char loggerFileName[LOGGER_PATH_MAX];
-    // check if the file name (%Y-%m-%d.log) is the same as the current one
+    char loggerFileName[LOGGER_FILE_NAME_MAX];
     getLoggerFileName(loggerFileName);
 
-    if (LOGGER.fileFd == -1 || strcmp(loggerFileName, LOGGER.fileName) != 0) {
+    // check if the file name (%Y-%m-%d.log) is the same as the current one
+    if (LOGGER.fileFd == -1 || strncmp(loggerFileName, LOGGER.fileName, LOGGER_FILE_NAME_MAX) != 0) {
 
         char loggerFullPath[LOGGER_PATH_MAX];
         getLoggerCurrentFullPath(loggerFullPath);
@@ -126,7 +116,7 @@ int getLoggerFileDescriptor() {
             close(LOGGER.fileFd);
         }
 
-        strcpy(LOGGER.fileName, loggerFileName);
+        strncpy(LOGGER.fileName, loggerFileName, LOGGER_FILE_NAME_MAX);
         LOGGER.fileFd = open(loggerFullPath, O_APPEND | O_CREAT | O_WRONLY, DEFAULT_LOGGER_PERMISSION_MODE);
         if (LOGGER.fileFd == -1) {
             die("fopen %s", loggerFullPath);
@@ -139,11 +129,9 @@ int getLoggerFileDescriptor() {
 
 void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int codeLine, char *message, ...) {
 
-    char format[1024];
+    char fullMessage[LOGGER_MESSAGE_MAX];
     char messageWithArguments[600];
     char datetime[LOGGER_DATETIME_FORMAT_MAX];
-
-    sprintf(format, "%s | %s | %s:%d", getLoggerCurrentDatetime(datetime), loggerLevelToStr(level), codeFileName, codeLine);
 
     va_list args;
     va_start(args, message);
@@ -154,16 +142,53 @@ void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int co
     if (fileFd == -1) {
         die("Not file descriptor found for logger file");
     }
-    sprintf(format + strlen(format), " | %s", messageWithArguments);
+
+    int lenFullMessage = snprintf(
+        fullMessage,
+        LOGGER_MESSAGE_MAX,
+        "%s | %s | %s:%d | %s",
+        getLoggerCurrentDatetime(datetime),
+        loggerLevelToStr(level),
+        codeFileName,
+        codeLine,
+        messageWithArguments);
 
     if (errno != 0 && showErrno) {
-        sprintf(format + strlen(format), " | %s\n", strerror(errno));
+        int lenWithErrno = snprintf(fullMessage + lenFullMessage, LOGGER_MESSAGE_MAX, " | %s\n", strerror(errno));
+        lenFullMessage += lenWithErrno;
     } else {
-        strcat(format, "\n");
+        fullMessage[lenFullMessage] = '\n';
+        fullMessage[lenFullMessage + 1] = '\0';
+        lenFullMessage++;
     }
 
-    int send = write(fileFd, format, strlen(format) + 1);
-    if (send == -1) {
+    if (writeAll(fileFd, fullMessage, lenFullMessage) == -1) {
         die("Error writing to logger file");
     }
+}
+
+/**
+ * @brief Write all the bytes of a buffer to a file descriptor, not writing more than necessary.
+ * 
+ * @param fd 
+ * @param buffer 
+ * @param count 
+ * 
+ * @return size_t 
+ */
+size_t writeAll(int fd, const void *buffer, size_t count) {
+    size_t left_to_write = count;
+    while (left_to_write > 0) {
+        size_t written = write(fd, buffer, count);
+        if (written == -1) {
+            // An error occurred
+            return -1;
+        } else {
+            // Keep count of how much more we need to write.
+            left_to_write -= written;
+        }
+    }
+    // We should have written no more than COUNT bytes!
+    // The number of bytes written is exactly COUNT
+    return count;
 }

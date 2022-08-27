@@ -1,11 +1,10 @@
 build/*
-**/cache
-**/vendor
-**/node_modules
 *.log
 strace.txt
 .vscode
 .idea
+*.o
+*.d
 /web.magic.mgc
 !.gitkeep
 !.gitignore

@@ -82,13 +82,13 @@ void waitAndAccept(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                 if (clientFd != -1 && strlen(buffer) > 0) {
                     // consoleDebug("Buffer:\n%s", buffer);
                     struct Request *request = makeRequest(buffer, clientFd);
+                    // Hardcoded for now
                     if (strcmp(request->path, "/hello") == 0) {
                         helloResponse(clientFd);
                         freeRequest(request);
                         continue;
                     }
                     struct Response *response = makeResponse(request, OPTIONS.htmlDir);
-
                     char *connectionHeader = getHeader(request->headers, "connection");
                     bool closeConnection = false;
                     // if not keep-alive, close connection
