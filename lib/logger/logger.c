@@ -1,5 +1,6 @@
 #include <errno.h> // for errno
 #include <fcntl.h> // for open() nonblocking socket
+#include <fcntl.h>
 #include <stdio.h> // for sprintf()
 #include <string.h>
 #include <sys/wait.h>
@@ -74,7 +75,7 @@ int mkpath(const char *file_path, mode_t mode) {
     for (p = tmp + 1; *p; p++) {
         // printf("tmp:%s p: %s - %c\n",tmp, p, *p);
         if (*p == '/') {
-            *p = 0; // terminate the string at the first '/' then for /var/log/ud-server we have /var when the p is at /log/ud-server
+            *p = 0; // terminate the string at the first '/' then for /var/log/ub-server we have /var when the p is at /log/ub-server
             // printf("TMP: %s\n", tmp);
             if (mkdir(tmp, mode) == -1 && errno != EEXIST) {
                 return -1;
@@ -94,34 +95,39 @@ int mkpath(const char *file_path, mode_t mode) {
 int getLoggerFileDescriptor() {
 
     if (LOGGER.active == false) {
-        if (LOGGER.fileFd != STDERR_FILENO) {
-            LOGGER.fileFd = STDERR_FILENO;
-        }
-
-        return LOGGER.fileFd;
+        LOGGER.initialized = true;
+        return STDERR_FILENO;
     }
 
-    char loggerFileName[LOGGER_FILE_NAME_MAX];
-    getLoggerFileName(loggerFileName);
+    char newLoggerFileName[LOGGER_FILE_NAME_MAX];
+    getLoggerFileName(newLoggerFileName);
 
     // check if the file name (%Y-%m-%d.log) is the same as the current one
-    if (LOGGER.fileFd == -1 || strncmp(loggerFileName, LOGGER.fileName, LOGGER_FILE_NAME_MAX) != 0) {
+    if (LOGGER.fileFd == STDERR_FILENO || strncmp(newLoggerFileName, LOGGER.fileName, LOGGER_FILE_NAME_MAX) != 0) {
+        LOGGER.initialized = false;
+    }
 
-        char loggerFullPath[LOGGER_PATH_MAX];
-        getLoggerCurrentFullPath(loggerFullPath);
-        if (mkpath(LOGGER.path, DEFAULT_LOGGER_PERMISSION_MODE) == -1) {
-            die("Error creating directory: %s", LOGGER.path);
-        }
-        if (LOGGER.fileFd != -1) {
+    if (!LOGGER.initialized) {
+        pthread_mutex_lock(&LOGGER.lock);
+        if (!LOGGER.initialized) {
+            char loggerFullPath[LOGGER_PATH_MAX];
+            getLoggerCurrentFullPath(loggerFullPath);
+            if (mkpath(LOGGER.path, DEFAULT_LOGGER_DIRECTORY_PERMISSION_MODE) == -1) {
+                die("Error creating directory: %s", LOGGER.path);
+            }
+
             close(LOGGER.fileFd);
-        }
+            strncpy(LOGGER.fileName, newLoggerFileName, LOGGER_FILE_NAME_MAX);
+            LOGGER.fileName[LOGGER_FILE_NAME_MAX-1] = '\0';
+            // TODO: check permissions if the file is already exists and if the permissions are not correct, remove and create a new file
 
-        strncpy(LOGGER.fileName, loggerFileName, LOGGER_FILE_NAME_MAX);
-        LOGGER.fileFd = open(loggerFullPath, O_APPEND | O_CREAT | O_WRONLY, DEFAULT_LOGGER_PERMISSION_MODE);
-        if (LOGGER.fileFd == -1) {
-            die("fopen %s", loggerFullPath);
+            LOGGER.fileFd = open(loggerFullPath, O_APPEND | O_CREAT | O_WRONLY | O_NOFOLLOW, DEFAULT_LOGGER_PERMISSION_MODE);
+            if (LOGGER.fileFd == -1) {
+                die("Error open path %s", loggerFullPath);
+            }
+            LOGGER.initialized = true;
         }
-        // makeSocketNonBlocking(LOGGER.fileFd);
+        pthread_mutex_unlock(&LOGGER.lock);
     }
 
     return LOGGER.fileFd;
@@ -129,40 +135,63 @@ int getLoggerFileDescriptor() {
 
 void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int codeLine, char *message, ...) {
 
-    char fullMessage[LOGGER_MESSAGE_MAX];
-    char messageWithArguments[600];
-    char datetime[LOGGER_DATETIME_FORMAT_MAX];
-
-    va_list args;
-    va_start(args, message);
-    vsprintf(messageWithArguments, message, args);
-    va_end(args);
-
     int fileFd = getLoggerFileDescriptor();
     if (fileFd == -1) {
         die("Not file descriptor found for logger file");
     }
 
+    va_list args;
+    va_start(args, message);
+    int lenMessageWithArguments = vsnprintf(NULL, 0, message, args);
+    va_end(args);
+
+    lenMessageWithArguments++; // add 1 for the null terminator
+
+    char messageWithArguments[lenMessageWithArguments];
+    va_start(args, message);
+    vsnprintf(messageWithArguments, lenMessageWithArguments, message, args);
+    va_end(args);
+
+    char datetime[LOGGER_DATETIME_FORMAT_MAX];
+    getLoggerCurrentDatetime(datetime);
+    const char *levelName = loggerLevelToStr(level);
+
     int lenFullMessage = snprintf(
-        fullMessage,
-        LOGGER_MESSAGE_MAX,
+        NULL,
+        0,
         "%s | %s | %s:%d | %s",
-        getLoggerCurrentDatetime(datetime),
-        loggerLevelToStr(level),
+        datetime,
+        levelName,
         codeFileName,
         codeLine,
         messageWithArguments);
 
     if (errno != 0 && showErrno) {
-        int lenWithErrno = snprintf(fullMessage + lenFullMessage, LOGGER_MESSAGE_MAX, " | %s\n", strerror(errno));
-        lenFullMessage += lenWithErrno;
-    } else {
-        fullMessage[lenFullMessage] = '\n';
-        fullMessage[lenFullMessage + 1] = '\0';
-        lenFullMessage++;
+        lenFullMessage += snprintf(NULL, 0, " | %s", strerror(errno));
     }
 
-   if (writeAll(fileFd, fullMessage, lenFullMessage) == -1) {
+    lenFullMessage += 2; // add 1 the new line and 1 for null terminator
+
+    char fullMessage[lenFullMessage];
+    int offset = snprintf(fullMessage, lenFullMessage, "%s | %s | %s:%d | %s", datetime, levelName, codeFileName, codeLine, messageWithArguments);
+
+    if (errno != 0 && showErrno) {
+        snprintf(fullMessage + offset, lenFullMessage - offset, " | %s", strerror(errno));
+    }
+    fullMessage[lenFullMessage - 2] = '\n';
+    fullMessage[lenFullMessage - 1] = '\0';
+
+    // Truncate: truncate message if it is too long
+    /*  if (lenFullMessage >= LOGGER_MESSAGE_MAX) {
+         char endMessage[8] = " [...]\n";
+         size_t lenEndMessage = strlen(endMessage);
+         strncpy(fullMessage + (LOGGER_MESSAGE_MAX - lenEndMessage), endMessage, lenEndMessage + 1);
+         lenFullMessage = LOGGER_MESSAGE_MAX;
+         char *truncateMessage = "The message has been truncated:\n";
+         writeAll(fileFd, truncateMessage, strlen(truncateMessage));
+     } */
+
+    if (writeAll(fileFd, fullMessage, lenFullMessage) == -1) {
         die("Error writing to logger file");
     }
 }
@@ -184,8 +213,8 @@ size_t writeAll(int fd, const void *buffer, size_t count) {
             // An error occurred
             if (errno == EINTR) {
                 // The call was interrupted by a signal
-               return 0;
-            } 
+                return 0;
+            }
             return -1;
         } else {
             // Keep count of how much more we need to write.

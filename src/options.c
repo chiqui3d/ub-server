@@ -1,4 +1,6 @@
 #include <unistd.h>
+#include <pthread.h>
+
 
 #include "options.h"
 #include "../lib/logger/logger.h"
@@ -25,8 +27,8 @@ void printOptions(struct Options options) {
     options.address,
     options.port,
     options.htmlDir,
-    options.logger.active ? "file" : "stderr",
-    options.logger.path);
+    LOGGER.active ? "file" : "stderr",
+    LOGGER.path);
 }
 
 struct Options getOptions(int argc, char *argv[]) {
@@ -34,19 +36,17 @@ struct Options getOptions(int argc, char *argv[]) {
     int command;
     int option_index = 0;
 
-    struct Logger logger;
-    memset(&logger, 0, sizeof(struct Logger));
-
     // DEFAULT LOGGER
-    logger.active = false;
-    logger.fileFd = -1;
+    LOGGER.active = false;
+    LOGGER.fileFd = STDERR_FILENO;
+    LOGGER.initialized = false;
+    LOGGER.lock =  (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER;
 
     // DEFAULT OPTIONS
     struct Options options;
     memset(&options, 0, sizeof(struct Options));
     strcpy(options.address, "localhost");
     options.port = 3001;
-    options.logger = logger;
 
       // Default html directory
     char HtmlDir[OPTIONS_PATH_MAX];
@@ -68,18 +68,17 @@ struct Options getOptions(int argc, char *argv[]) {
                 strcpy(options.htmlDir, optarg);
                 break;
             case 'l': {
-                options.logger.active = true;
-                strcpy(options.logger.path, DEFAULT_LOGGER_FILE_PATH);
+                LOGGER.active = true;
+                strcpy(LOGGER.path, DEFAULT_LOGGER_FILE_PATH);
                 char loggerFileName[LOGGER_FILE_NAME_MAX];
-                strcpy(options.logger.fileName, getLoggerFileName(loggerFileName));
-                LOGGER = options.logger;
+                strcpy(LOGGER.fileName, getLoggerFileName(loggerFileName));
                 break;
             }
             case 't': {
-                strcpy(options.logger.path, optarg);
-                char loggerUserFileName[LOGGER_FILE_NAME_MAX];
-                strcpy(options.logger.fileName, getLoggerFileName(loggerUserFileName));
-                LOGGER = options.logger;
+                LOGGER.active = true;
+                strcpy(LOGGER.path, optarg);
+                char loggerFileName[LOGGER_FILE_NAME_MAX];
+                strcpy(LOGGER.fileName, getLoggerFileName(loggerFileName));
                 break;
             }
 
@@ -101,7 +100,6 @@ struct Options getOptions(int argc, char *argv[]) {
         print_usage(1);
     } */
     
-    LOGGER = options.logger;
     OPTIONS = options;
 
     return options;

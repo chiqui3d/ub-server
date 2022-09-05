@@ -43,9 +43,7 @@ static const char *usageTemplate;
 struct Options {
     char address[INET6_ADDRSTRLEN]; // IPv4 or IPv6
     uint16_t port;
-    char htmlDir[OPTIONS_PATH_MAX];
-    struct Logger logger;
-    
+    char htmlDir[OPTIONS_PATH_MAX];    
 };
 
 extern struct Options OPTIONS;

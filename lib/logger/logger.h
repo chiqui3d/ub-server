@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <stdatomic.h>
+#include <pthread.h>
 
 #include "../color/color.h"
 
@@ -15,8 +17,8 @@
 
 #define DEFAULT_LOGGER_FILE_PATH "/var/log/ub-server/"
 #define DEFAULT_LOGGER_OPEN_MODE "a+"
-#define DEFAULT_LOGGER_PERMISSION_MODE 0755
-
+#define DEFAULT_LOGGER_DIRECTORY_PERMISSION_MODE 1755 // 1775 = 755 + 1000 Sticky bit
+#define DEFAULT_LOGGER_PERMISSION_MODE 0755 // 0755 = 755 + 0000 Sticky bit
 #define LOGGER_MESSAGE_MAX 1024
 #define LOGGER_PATH_MAX 1024
 #define LOGGER_FILE_NAME_MAX 15 // 2020-08-27.log 15 chars
@@ -35,6 +37,8 @@ enum LOG_LEVEL {
 static const char *logLevelList[] = {"ERROR", "WARN", "INFO", "DEBUG"};
 
 struct Logger {
+    atomic_bool initialized;
+    pthread_mutex_t lock;
     bool active;
     char path[LOGGER_PATH_MAX];
     char fileName[LOGGER_FILE_NAME_MAX];

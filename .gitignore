@@ -5,6 +5,9 @@ strace.txt
 .idea
 *.o
 *.d
+lib/*/*.d
+lib/*/*.o
+compile_commands.json
 /web.magic.mgc
 !.gitkeep
 !.gitignore
