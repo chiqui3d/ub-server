@@ -94,11 +94,11 @@ Transfer/sec:      2.93MB
 
 # TODO
 
-* [ ] Decouple logging from main program (thread and queue)
 * [ ] Add support for keep-alive connections
+* [ ] Decouple logging from main program (thread and queue)
 * [ ] Add support for Accept-Ranges
 * [ ] Add fork and thread alternative example
-* [ ] Reduce the number of times i use dynamic memory with malloc
+* [ ] Reduce the number of times dynamic memory is used with `malloc`
 * [ ] Add support for compression
 * [ ] Add more optimizations
 * [ ] Add support for HTTPS
