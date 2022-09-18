@@ -44,7 +44,7 @@ struct Options {
     char address[INET6_ADDRSTRLEN]; // IPv4 or IPv6
     uint16_t port;
     char htmlDir[OPTIONS_PATH_MAX];
-    bool keepAlive;
+    bool TCPKeepAlive;
 };
 
 extern struct Options OPTIONS;

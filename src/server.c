@@ -9,9 +9,9 @@
 #include "../lib/color/color.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
+#include "accept_client_epoll.h"
 #include "helper.h"
 #include "server.h"
-#include "accept_client_epoll.h"
 
 void serverRun(struct Options options) {
 
@@ -27,7 +27,7 @@ void serverRun(struct Options options) {
         die("setsockopt SO_REUSEADDR");
     }
 
-    if (OPTIONS.keepAlive) {
+    if (OPTIONS.TCPKeepAlive) {
         makeKeepAlive(socketServerFd);
     }
     /* struct linger so_linger;
@@ -36,7 +36,6 @@ void serverRun(struct Options options) {
     if (setsockopt(socketServerFd, SOL_SOCKET,SO_LINGER,&so_linger, sizeof(so_linger)) == -1) {
         die("setsockopt SO_LINGER");
     } */
-  
 
     // https://baus.net/on-tcp_cork/
     int enableTCP_NO_DELAY = 1;

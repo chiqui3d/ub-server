@@ -6,18 +6,19 @@
 #define MAX_CONNECTIONS 1000
 #define KEEP_ALIVE_TIMEOUT 30 // seconds
 
-// Keep Alive info
+// TCP Keep Alive, TCP and HTTP keep-alive are different
+// https://stackoverflow.com/questions/411460/use-http-keep-alive-for-server-to-communicate-to-client
 // https://www.ibm.com/docs/es/was/8.5.5?topic=stores-tuning-detection-database-connection-loss
 // https://datatracker.ietf.org/doc/html/draft-thomson-hybi-http-timeout-03#section-2
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Keep-Alive
 // https://www.rfc-editor.org/rfc/rfc2068
 
-// tcp_keepalive_probes: the number of unacknowledged probes to send before considering the connection dead and notifying the application layer
+// tcp_keepalive_probes (number): the number of unacknowledged probes to send before considering the connection dead
 #define KEEP_ALIVE_TCP_KEEPCNT 20
-// tcp_keepalive_time: the interval between the last data packet sent (simple ACKs are not considered data) and the first keepalive probe; 
-// after the connection is marked to need keepalive, this counter is not used any further
+// tcp_keepalive_time (seconds): the wait interval before send the first keepalive probe; 
+// If no ACK response is received for KEEP_ALIVE_TCP_KEEPCNT consecutive times, the connection is marked as broken.
 #define KEEP_ALIVE_TCP_KEEPIDLE 700 
-// tcp_keepalive_intvl: the interval between subsequential keepalive probes, regardless of what the connection has exchanged in the meantime
+// tcp_keepalive_intvl (seconds): the interval between subsequential keepalive probes (resend) after the first probe of KEEP_ALIVE_TCP_KEEPIDLE seconds
 #define KEEP_ALIVE_TCP_KEEPINTVL 10 
 
 

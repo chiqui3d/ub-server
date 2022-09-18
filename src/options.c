@@ -24,13 +24,13 @@ void printOptions(struct Options options) {
     "HTML dir: %s\n"
     "Logger: %s\n"
     "Logger path: %s\n"
-    "Keep-Alive: %s\n\n",
+    "TCP Keep-Alive: %s\n\n",
     options.address,
     options.port,
     options.htmlDir,
     LOGGER.active ? "file" : "stderr",
     LOGGER.path,
-    options.keepAlive ? "On" : "Off");
+    options.TCPKeepAlive ? "On" : "Off");
 }
 
 struct Options getOptions(int argc, char *argv[]) {
@@ -49,7 +49,7 @@ struct Options getOptions(int argc, char *argv[]) {
     memset(&options, 0, sizeof(struct Options));
     strcpy(options.address, "localhost");
     options.port = 3001;
-    options.keepAlive = false;
+    options.TCPKeepAlive = false;
 
 
       // Default html directory

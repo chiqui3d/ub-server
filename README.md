@@ -100,7 +100,7 @@ Transfer/sec:      2.93MB
 
 # TODO
 
-* [x] Add support for keep-alive connections
+* [x] Add support for HTTP keep-alive connections
 * [ ] Add support for Accept-Ranges
 * [ ] Add fork and thread alternative example
 * [ ] Reduce the number of times dynamic memory is used with `malloc`
