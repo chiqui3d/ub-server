@@ -14,6 +14,8 @@ Currently, I have downloaded a free HTML template and put it directly into the `
 
 But as I said before, although it works, it still requires a lot of validation, and it is possible that it has some errors when dealing with some headers or options.
 
+Some headers are added manually as can be seen in the code https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L115, such as the cache header, which disabled the browser cache to avoid unexpected results during testing.
+
 I would also like to reduce the number of times I use dynamic memory with `malloc`.
 
 Someone posted on Reddit some good recommendations to follow in C [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
