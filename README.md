@@ -1,16 +1,20 @@
 # Undefined Behavior Server 👀
 
-**Undefined Behavior** is the result I have had throughout the development and learning of this simple HTTP server in C. Currently I still have a lot more to apply, optimize and learn. Currently, according to **Valgrind** (`valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`) I don't have any memory leaks..., but it is clear that a web server is quite complex, especially because of the amount of specifications it contains, along with the optimizations that this implies to support the maximum number of connections.
+**Undefined Behavior** is a HTTP 1.1 server made with **Epoll** and for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`)
 
-Currently, it is being developed with **Epoll** to accept client connections via event notifications, in which the file descriptors of each client/connection are included for later use. All this can be seen in https://github.com/chiqui3d/ud-server/blob/main/src/server_accept_epoll.c
+Currently, it is being developed with **Epoll** to accept client connections via event notifications, in which the file descriptors of each client/connection are included for later use. All this can be seen in https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_epoll.c
 
-My intention is to create another `server_accept_*.c` for `fork` and another for `thread` and test the differences with [wrk](https://github.com/wg/wrk), to learn along the way.
+My intention is to create another `accept_client_*.c` for `fork` and another for `thread` and test the differences with [wrk](https://github.com/wg/wrk), to learn along the way.
+
+I have added a **priority queue with the heap** data structure (min-heap), to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser, it does not work with tabs.
+
+I have also created a small library for logging and you can print the logs to a file if you wish. If you comment out the line of code in the Makefile containing `CFLAGS += -DNDEBUG`, you will be able to see the logs directly in the console instead of in a file.
 
 Currently, I have downloaded a free HTML template and put it directly into the `public` directory to test it out, and it seems to work quite well.
 
 But as I said before, although it works, it still requires a lot of validation, and it is possible that it has some errors when dealing with some headers or options.
 
-I would also like to reduce the number of times I use dynamic memory with `malloc`. As a newbie, I'm a bit of a mess when it comes to choosing one option or the other when assigning chars.
+I would also like to reduce the number of times I use dynamic memory with `malloc`.
 
 Someone posted on Reddit some good recommendations to follow in C [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
 
@@ -94,11 +98,11 @@ Transfer/sec:      2.93MB
 
 # TODO
 
-* [ ] Add support for keep-alive connections
-* [ ] Decouple logging from main program (thread and queue)
+* [x] Add support for keep-alive connections
 * [ ] Add support for Accept-Ranges
 * [ ] Add fork and thread alternative example
 * [ ] Reduce the number of times dynamic memory is used with `malloc`
+* [ ] Decouple logging from main program (thread and queue)
 * [ ] Add support for compression
 * [ ] Add more optimizations
 * [ ] Add support for HTTPS
