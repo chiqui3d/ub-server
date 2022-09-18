@@ -12,19 +12,13 @@
 
 
 char *readRequest(char *buffer, int clientFd, bool *doneForClose) {
-    /* We have data on the fd waiting to be read. Read and
-        display it. We must read whatever data is available
-        completely, as we are running in edge-triggered mode
-        and won't get a notification again for the same
-        data. */
 
     int totalBytesRead = 0;
     int restBytesRead = BUFFER_REQUEST_SIZE - 1; // for add null terminator char
     while (restBytesRead > 0) {                  // MSG_PEEK
         ssize_t bytesRead = recv(clientFd, buffer + totalBytesRead, restBytesRead, 0);
         if (bytesRead < 0) {
-            // EAGAIN does not mean you're disconnected,
-            // it just means "there's nothing to read now; try again later"
+            // Ignore EWOULDBLOCK|EAGAIN, it not mean you're disconnected, it just means there's nothing to read now 
             if (errno != EAGAIN || errno != EWOULDBLOCK) {
                 // possible ECONNRESET or EPIPE with wrk program
                 logError("recv() request failed");

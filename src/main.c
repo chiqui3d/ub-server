@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
     // https://stackoverflow.com/questions/108183/how-to-prevent-sigpipes-or-handle-them-properly
     signal(SIGPIPE, SIG_IGN);
 
-    sigintReceived = 0;
+    sigintReceived = 0; // sigintReceived for break epoll loop
 
     serverRun(options);
 

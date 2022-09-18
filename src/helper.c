@@ -6,30 +6,6 @@
 
 #include "../lib/die/die.h"
 
-void printElapsedTime(void) {
-    static struct timespec start;
-    struct timespec curr;
-    static int first_call = 1;
-    int secs, nsecs;
-
-    if (first_call) {
-        first_call = 0;
-        if (clock_gettime(CLOCK_MONOTONIC, &start) == -1)
-            die("clock_gettime");
-    }
-
-    if (clock_gettime(CLOCK_MONOTONIC, &curr) == -1)
-        die("clock_gettime");
-
-    secs = curr.tv_sec - start.tv_sec;
-    nsecs = curr.tv_nsec - start.tv_nsec;
-    if (nsecs < 0) {
-        secs--;
-        nsecs += 1000000000;
-    }
-    printf("Elapsed time: %d.%03d\n", secs, (nsecs + 500000) / 1000000);
-}
-
 int makeSocketNonBlocking(int fd) {
     int flags, s;
 

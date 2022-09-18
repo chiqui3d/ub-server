@@ -14,7 +14,6 @@
 #define DATETIME_HELPER_SIZE 20
 
 int makeSocketNonBlocking(int fd);
-void printElapsedTime(void);
 char *timeToDatetimeString(time_t time, char *format);
 
 char *toLower(char *str, size_t len);
