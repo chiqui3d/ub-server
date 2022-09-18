@@ -1,85 +1,49 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "../lib/color/color.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "request.h"
 #include "helper.h"
+#include "server.h"
 
-const char *methodToStr(enum Method method) {
-    return methodsList[method];
-}
 
-enum Method strToMethod(char *method) {
-    int i;
-    for (i = 0; i < METHOD_UNSUPPORTED; i++) {
-        if (strcmp(method, methodsList[i]) == 0) {
-            return (enum Method)i;
+char *readRequest(char *buffer, int clientFd, bool *doneForClose) {
+    /* We have data on the fd waiting to be read. Read and
+        display it. We must read whatever data is available
+        completely, as we are running in edge-triggered mode
+        and won't get a notification again for the same
+        data. */
+
+    int totalBytesRead = 0;
+    int restBytesRead = BUFFER_REQUEST_SIZE - 1; // for add null terminator char
+    while (restBytesRead > 0) {                  // MSG_PEEK
+        ssize_t bytesRead = recv(clientFd, buffer + totalBytesRead, restBytesRead, 0);
+        if (bytesRead < 0) {
+            // EAGAIN does not mean you're disconnected,
+            // it just means "there's nothing to read now; try again later"
+            if (errno != EAGAIN || errno != EWOULDBLOCK) {
+                // possible ECONNRESET or EPIPE with wrk program
+                logError("recv() request failed");
+                *doneForClose = 1;
+            }
+            break;
+        } else if (bytesRead == 0) {
+            *doneForClose = 1;
+            break;
+        } else {
+            totalBytesRead += bytesRead;
+            restBytesRead -= bytesRead;
         }
     }
+    buffer[totalBytesRead] = '\0';
 
-    return METHOD_UNSUPPORTED;
+
+    return buffer;
 }
-
-void printRequest(struct Request *request) {
-    printf(RED "Request: \n" RESET);
-    printf("Method: %s\n", methodToStr(request->method));
-    printf("Path: %s\n", request->path);
-    printf("Protocol Version: %s\n", request->protocolVersion);
-    printf("IP: %s\n", request->ip);
-    printf("Scheme: %s\n", request->scheme);
-    printf("Headers:\n");
-    struct Header *header = request->headers;
-    while (header != NULL) {
-        printf("%s: %s\n", header->name, header->value);
-        header = header->next;
-    }
-    if (request->body != NULL) {
-        printf("Body: %s\n", request->body);
-    }
-    printf("\n\n");
-}
-
-void logRequest(struct Request *request) {
-
-    size_t bodyLength = strlen(request->body == NULL ? "" : request->body);
-    char *userAgent = getHeader(request->headers, "user-agent");
-    char *referer = getHeader(request->headers, "referer");
-    char *host = getHeader(request->headers, "host");
-    char URL[REQUEST_PATH_MAX_SIZE];
-
-    if (host != NULL) {
-       sprintf(URL, "%s%s%s%s",request->scheme,"://", host, request->path);
-    }else{
-       strcpy(URL, "<URL>");
-    }
-
-    logInfo("Request | \"%s %s %s\" - %lu - %s - %s - %s - \"%s\"",
-            methodToStr(request->method),
-            request->path,
-            request->protocolVersion,
-            bodyLength,
-            request->ip,
-            URL,
-            (referer != NULL ? referer : ""),
-            (userAgent != NULL ? userAgent : ""));
-}
-
-void freeRequest(struct Request *request) {
-    
-    free(request->path);
-    free(request->protocolVersion);
-    if (request->body != NULL) {
-        free(request->body);
-    }
-    
-    freeHeader(request->headers);
-    free(request);
-}
-
-
 
 struct Request *makeRequest(char *buffer, int clientFd) {
 
@@ -188,4 +152,75 @@ struct Request *makeRequest(char *buffer, int clientFd) {
     }
 
     return request;
+}
+
+void freeRequest(struct Request *request) {
+    
+    free(request->path);
+    free(request->protocolVersion);
+    if (request->body != NULL) {
+        free(request->body);
+    }
+    
+    freeHeader(request->headers);
+    free(request);
+}
+
+void printRequest(struct Request *request) {
+    printf(RED "Request: \n" RESET);
+    printf("Method: %s\n", methodToStr(request->method));
+    printf("Path: %s\n", request->path);
+    printf("Protocol Version: %s\n", request->protocolVersion);
+    printf("IP: %s\n", request->ip);
+    printf("Scheme: %s\n", request->scheme);
+    printf("Headers:\n");
+    struct Header *header = request->headers;
+    while (header != NULL) {
+        printf("%s: %s\n", header->name, header->value);
+        header = header->next;
+    }
+    if (request->body != NULL) {
+        printf("Body: %s\n", request->body);
+    }
+    printf("\n\n");
+}
+
+void logRequest(struct Request *request) {
+
+    size_t bodyLength = strlen(request->body == NULL ? "" : request->body);
+    char *userAgent = getHeader(request->headers, "user-agent");
+    char *referer = getHeader(request->headers, "referer");
+    char *host = getHeader(request->headers, "host");
+    char URL[REQUEST_PATH_MAX_SIZE];
+
+    if (host != NULL) {
+       sprintf(URL, "%s%s%s%s",request->scheme,"://", host, request->path);
+    }else{
+       strcpy(URL, "<URL>");
+    }
+
+    logInfo("Request | \"%s %s %s\" - %lu - %s - %s - %s - \"%s\"",
+            methodToStr(request->method),
+            request->path,
+            request->protocolVersion,
+            bodyLength,
+            request->ip,
+            URL,
+            (referer != NULL ? referer : ""),
+            (userAgent != NULL ? userAgent : ""));
+}
+
+const char *methodToStr(enum Method method) {
+    return methodsList[method];
+}
+
+enum Method strToMethod(char *method) {
+    int i;
+    for (i = 0; i < METHOD_UNSUPPORTED; i++) {
+        if (strcmp(method, methodsList[i]) == 0) {
+            return (enum Method)i;
+        }
+    }
+
+    return METHOD_UNSUPPORTED;
 }

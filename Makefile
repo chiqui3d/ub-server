@@ -13,9 +13,9 @@ TARGET 	 := bin/ubserver
 
 CC 	     := clang -O3
 CFLAGS   := -std=c17 -D_GNU_SOURCE=1 
-CFLAGS 	 += -ggdb3
+#CFLAGS 	 += -ggdb3
 CFLAGS 	 += -pthread
-#CFLAGS 	 += -DNDEBUG
+CFLAGS 	 += -DNDEBUG
 CFLAGS   += -MMD -Wall -Wextra -Wno-vla -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wshadow
 CFLAGS   += -fsanitize=signed-integer-overflow -fsanitize=undefined
 ## mime types ## 

@@ -13,6 +13,21 @@
 #include "response.h"
 #include "server.h"
 
+
+void unsupportedProtocolResponse(int clientFd, char *protocolVersion) {
+    char responseBuffer[1024];
+    snprintf(responseBuffer, 1024, versionNotSupportedResponseTemplate, protocolVersion);
+    sendAll(clientFd, responseBuffer, strlen(responseBuffer));
+}
+
+void tooManyRequestResponse(int clientFd) {
+    sendAll(clientFd, tooManyRequestResponseTemplate, strlen(tooManyRequestResponseTemplate));
+}
+
+void helloResponse(int clientFd) {
+    sendAll(clientFd, helloResponseTemplate, strlen(helloResponseTemplate));
+}
+
 void printResponse(struct Response *response) {
     printf("Response:\n");
     printf("\tStatus: %d\n", response->statusCode);
@@ -96,7 +111,8 @@ void sendResponse(struct Response *response, int clientFd) {
     sprintf(responseHeader + strlen(responseHeader), "date: %s\n", currentDate);
     sprintf(responseHeader + strlen(responseHeader), "last-modified: %s\n", lastModifiedDate);
     sprintf(responseHeader + strlen(responseHeader), "server: %s\n", "Undefined Behaviour Server");
-    sprintf(responseHeader + strlen(responseHeader), "cache-control: %s\n\n", "private, max-age=86400, must-revalidate, stale-if-error=86400");
+    //sprintf(responseHeader + strlen(responseHeader), "cache-control: %s\n\n", "private, max-age=86400, must-revalidate, stale-if-error=86400");
+    sprintf(responseHeader + strlen(responseHeader), "cache-control: %s\n\n", "private, no-cache, no-store, must-revalidate");
     sendAll(clientFd, responseHeader, strlen(responseHeader));
 
     off_t offset = 0;
@@ -191,14 +207,4 @@ size_t sendAll(int fd, const void *buffer, size_t count) {
     // We should have written no more than COUNT bytes!
     // The number of bytes written is exactly COUNT
     return count;
-}
-
-void unsupportedProtocolResponse(int clientFd, char *protocolVersion) {
-    char responseBuffer[1024];
-    snprintf(responseBuffer, 1024, versionNotSupportedResponseTemplate, protocolVersion);
-    sendAll(clientFd, responseBuffer, strlen(responseBuffer));
-}
-
-void helloResponse(int clientFd) {
-    sendAll(clientFd, helloResponseTemplate, strlen(helloResponseTemplate));
 }

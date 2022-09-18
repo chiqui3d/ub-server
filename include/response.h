@@ -30,6 +30,7 @@ size_t sendAll(int fd, const void *buffer, size_t count);
 
 void helloResponse(int clientFd);
 void unsupportedProtocolResponse(int clientFd, char *protocolVersion);
+void tooManyRequestResponse(int clientFd);
 
 static char *helloResponseTemplate =
     "HTTP/1.1 200 OK\n"
@@ -63,6 +64,17 @@ static char *versionNotSupportedResponseTemplate =
     "<html>\n"
     " <body>\n"
     "  <h1>HTTP Version <%s> Not Supported</h1>\n"
+    " </body>\n"
+    "</html>\n";
+
+static char *tooManyRequestResponseTemplate =
+    "HTTP/1.1 429 Too Many Requests\n"
+    "Content-type: text/html; charset=UTF-8\n"
+    "Connection: close\n"
+    "\n"
+    "<html>\n"
+    " <body>\n"
+    "  <h1>Too Many Requests</h1>\n"
     " </body>\n"
     "</html>\n";
 

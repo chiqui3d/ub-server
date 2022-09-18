@@ -8,13 +8,18 @@
 
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
+#include "handle_timeout_connections.h"
+#include "helper.h"
 #include "options.h"
 #include "request.h"
 #include "response.h"
 #include "server.h"
-#include "server_accept_epoll.h"
+#include "accept_client_epoll.h"
+
 
 struct Options OPTIONS;
+struct QueueConnectionsTimeout queueConnectionsTimeout;
+int indexQueueConnectionsFd[MAX_CONNECTIONS];
 
 struct epoll_event buildEvent(int events, int fd) {
     struct epoll_event event = {0};
@@ -36,24 +41,14 @@ void closeClient(int epollFd, int clientFd) {
 void addClient(int epollFd, int clientFd) {
     // (EPOLLIN | EPOLLET Edge Triggered (ET) for non-blocking sockets
     // EPOLLERR and EPOLLHUP are always included even if you're not requesting them
-    struct epoll_event event = buildEvent(EPOLLIN | EPOLLET, clientFd);
+    struct epoll_event event = buildEvent(EPOLLIN | EPOLLET | EPOLLHUP | EPOLLRDHUP, clientFd);
     int s = epoll_ctl(epollFd, EPOLL_CTL_ADD, clientFd, &event);
     if (s == -1) {
         die("EPOLL_CTL_ADD failed");
     }
 }
 
-/* closeClient(int clientFd, struct epoll_event *events, int *eventsCount) {
-    close(clientFd);
-    for (int i = 0; i < *eventsCount; i++) {
-        if (events[i].data.fd == clientFd) {
-            events[i].data.fd = -1;
-            break;
-        }
-    }
-} */
-
-void waitAndAccept(int socketServerFd, struct sockaddr_in *socketAddress, socklen_t socketAddressLen) {
+void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, socklen_t socketAddressLen) {
 
     int epollFd = epoll_create1(0);
     if (epollFd < 0) {
@@ -63,24 +58,34 @@ void waitAndAccept(int socketServerFd, struct sockaddr_in *socketAddress, sockle
 
     struct epoll_event events[MAX_EPOLL_EVENTS];
 
+    createQueueConnections();
+
     while (!sigintReceived) {
         int i, num_ready;
-        // -1 block forever, 0 non-blocking, >0 timeout in milliseconds
+        // -1 block forever, 0 non-blocking, > 0 timeout in milliseconds
         // -1 is necessary for accept new connections
-        num_ready = epoll_wait(epollFd, events, MAX_EPOLL_EVENTS, -1 /*timeout*/);
+        num_ready = epoll_wait(epollFd, events, MAX_EPOLL_EVENTS, (int)(KEEP_ALIVE_TIMEOUT / 2) * 1000 /*timeout*/);
         if (num_ready < 0) {
             logWarning("epoll_wait failed");
         }
         for (i = 0; i < num_ready; i++) {
             if (events[i].data.fd == socketServerFd) {
                 consoleDebug(GREEN "Accepting new connection........." RESET);
-                acceptNewConnections(epollFd, socketServerFd);
+                acceptConnection(epollFd, socketServerFd);
             } else if (events[i].events & EPOLLIN) {
                 int clientFd = events[i].data.fd;
                 consoleDebug(GREEN "Reading from client fd %i........." RESET, clientFd);
-                char buffer[BUFFER_REQUEST_SIZE] = "0";
-                readRequest(buffer, epollFd, &clientFd);
-               
+                char buffer[BUFFER_REQUEST_SIZE];
+                bool doneForClose = 0;
+                readRequest(buffer, clientFd, &doneForClose);
+                if (doneForClose == 1) {
+                    logDebug(BLUE "Done for close" RESET);
+                    dequeueConnectionByFd(clientFd);
+                    closeClient(epollFd, clientFd);
+                    clientFd = -1;
+                    continue;
+                }
+
                 if (clientFd != -1 && strlen(buffer) > 0) {
                     // consoleDebug("Buffer:\n%s", buffer);
                     struct Request *request = makeRequest(buffer, clientFd);
@@ -95,41 +100,69 @@ void waitAndAccept(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                         freeRequest(request);
                         continue;
                     }
+                    // make response
                     struct Response *response = makeResponse(request, OPTIONS.htmlDir);
+
+                    // connection
                     char *connectionHeader = getHeader(request->headers, "connection");
                     bool closeConnection = false;
-                    // if not keep-alive, close connection
-                    if (connectionHeader == NULL || *connectionHeader != 'k') {
+
+                    // if not keep-alive in the request header, close connection
+                    if (connectionHeader == NULL || (connectionHeader != NULL && *connectionHeader == 'c')) {
                         closeConnection = true;
                         response->headers = addHeader(response->headers, "connection", "close");
                     }
-                    sendResponse(response, clientFd);
-                    if (closeConnection) {
-                        closeClient(epollFd, clientFd);
+                    if (connectionHeader != NULL && *connectionHeader == 'k') {
+                        response->headers = addHeader(response->headers, "connection", "keep-alive");
+                        char headerKeepAliveValue[11];
+                        sprintf(headerKeepAliveValue, "timeout=%i", KEEP_ALIVE_TIMEOUT);
+                        response->headers = addHeader(response->headers, "keep-alive", headerKeepAliveValue);
                     }
+
+                    // response
+                    sendResponse(response, clientFd);
                     // printRequest(request);
                     freeResponse(response);
                     logRequest(request);
                     freeRequest(request);
-                    continue;
-                } else {
-                    if (clientFd != -1) {
+                    if (closeConnection == false) {
+                        if (indexQueueConnectionsFd[clientFd] == -1) {
+                            struct ConnectionTimeoutElement connectionQueueElement = {time(NULL), clientFd};
+                            enqueueConnection(connectionQueueElement);
+                        } else {
+                            updateQueueConnection(clientFd, time(NULL));
+                        }
+                    } else {
+                        dequeueConnectionByFd(clientFd);
                         closeClient(epollFd, clientFd);
                     }
                 }
 
             } else if ((events[i].events & EPOLLERR) ||
                        (events[i].events & EPOLLHUP) ||
-                       (events[i].events & EPOLLRDHUP) ||
-                       (!(events[i].events & EPOLLIN))) {
+                       (events[i].events & EPOLLRDHUP)) {
                 // TODO: never happens, remove?
                 logDebug("EPOLLERR|EPOLLHUP|EPOLLRDHUP");
             }
         }
+
+        // check connection client timeout
+
+        struct ConnectionTimeoutElement lastConnectionQueueElement = peekQueueConnections();
+        while (lastConnectionQueueElement.fd != 0 && difftime(time(NULL), lastConnectionQueueElement.priorityTime) >= KEEP_ALIVE_TIMEOUT) {
+            logDebug(BLUE "Close by timeout with fd %i and time_t %ld" RESET, lastConnectionQueueElement.fd, lastConnectionQueueElement.priorityTime);
+            dequeueConnection();
+            closeClient(epollFd, lastConnectionQueueElement.fd);
+            lastConnectionQueueElement = peekQueueConnections();
+        }
+        char datetime[DATETIME_HELPER_SIZE];
+        timeToDatetimeString(time(NULL), datetime);
+        logDebug("FDs processed, now waiting again for %d seconds in the time: %s", (int)(KEEP_ALIVE_TIMEOUT / 2), datetime);
+        printQueueConnections();
     }
 }
 
-void acceptNewConnections(int epollFd, int socketServerFd) {
+void acceptConnection(int epollFd, int socketServerFd) {
     while (1) {
         struct sockaddr_in client_address;
         socklen_t client_address_len = sizeof(client_address);
@@ -144,8 +177,9 @@ void acceptNewConnections(int epollFd, int socketServerFd) {
             break;
         }
         if (clientFd >= MAX_CONNECTIONS) {
+            logWarning("Maximum connections (%d) exceeded by fd %d", MAX_CONNECTIONS, clientFd);
+            tooManyRequestResponse(clientFd);
             close(clientFd);
-            logWarning("socket fd (%d) >= MAX_CONNECTIONS (%d)", clientFd, MAX_CONNECTIONS);
             return;
         }
 
@@ -153,43 +187,4 @@ void acceptNewConnections(int epollFd, int socketServerFd) {
         makeSocketNonBlocking(clientFd);
         addClient(epollFd, clientFd);
     }
-}
-
-char *readRequest(char *buffer, int epollFd, int *clientFd) {
-    /* We have data on the fd waiting to be read. Read and
-        display it. We must read whatever data is available
-        completely, as we are running in edge-triggered mode
-        and won't get a notification again for the same
-        data. */
-
-    int doneForClose = 0;
-    int totalBytesRead = 0;
-    int restBytesRead = BUFFER_REQUEST_SIZE - 1; // for add null terminator char
-    while (restBytesRead > 0) {                  // MSG_PEEK
-        ssize_t bytesRead = recv(*clientFd, buffer + totalBytesRead, restBytesRead, 0);
-        if (bytesRead < 0) {
-            // EAGAIN does not mean you're disconnected,
-            // it just means "there's nothing to read now; try again later"
-            if (errno != EAGAIN || errno != EWOULDBLOCK) {
-                // possible ECONNRESET or EPIPE with wrk program
-                logError("recv() request failed");
-                doneForClose = 1;
-            }
-            break;
-        } else if (bytesRead == 0) {
-            doneForClose = 1;
-            break;
-        } else {
-            totalBytesRead += bytesRead;
-            restBytesRead -= bytesRead;
-        }
-    }
-    buffer[totalBytesRead] = '\0';
-
-    if (doneForClose) {
-        closeClient(epollFd, *clientFd);
-        *clientFd = -1;
-    }
-
-    return buffer;
 }

@@ -30,14 +30,17 @@ struct Request {
 };
 
 
+char *readRequest(char *buffer, int clientFd, bool *doneForClose);
+struct Request *makeRequest(char *buffer, int clientFd);
+void freeRequest(struct Request *request);
+
 void printRequest(struct Request *request);
 void logRequest(struct Request *request);
 
 const char *methodToStr(enum Method method);
 enum Method strToMethod(char *method);
 
-struct Request *makeRequest(char *buffer, int clientFd);
-void freeRequest(struct Request *request);
+
 
 
 #endif // REQUEST_H

@@ -11,7 +11,7 @@
 #include "../lib/logger/logger.h"
 #include "helper.h"
 #include "server.h"
-#include "server_accept_epoll.h"
+#include "accept_client_epoll.h"
 
 void serverRun(struct Options options) {
 
@@ -27,12 +27,16 @@ void serverRun(struct Options options) {
         die("setsockopt SO_REUSEADDR");
     }
 
-    /*
-        struct timeval timeout;
-        timeout.tv_sec  = 3;  // after 7 seconds connect() will timeout
-        timeout.tv_usec = 0;
-        setsockopt(socketServerFd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-    */
+    if (OPTIONS.keepAlive) {
+        makeKeepAlive(socketServerFd);
+    }
+    /* struct linger so_linger;
+    so_linger.l_onoff = true;
+    so_linger.l_linger = 5;
+    if (setsockopt(socketServerFd, SOL_SOCKET,SO_LINGER,&so_linger, sizeof(so_linger)) == -1) {
+        die("setsockopt SO_LINGER");
+    } */
+  
 
     // https://baus.net/on-tcp_cork/
     int enableTCP_NO_DELAY = 1;
@@ -71,9 +75,31 @@ void serverRun(struct Options options) {
         die("listen");
     }
 
-    consoleDebug(GREEN "Server listening on http://%s:%d ..." RESET "\n\n", inet_ntoa(socketAddress.sin_addr), htons(socketAddress.sin_port));
+    printf(GREEN "Server listening on http://%s:%d ..." RESET "\n\n", inet_ntoa(socketAddress.sin_addr), htons(socketAddress.sin_port));
 
-    waitAndAccept(socketServerFd, &socketAddress, socketAddressLen);
+    acceptClients(socketServerFd, &socketAddress, socketAddressLen);
 
     close(socketServerFd);
+}
+
+void makeKeepAlive(int socketServerFd) {
+    int enableKeepAlive = 1;
+    if (setsockopt(socketServerFd, SOL_SOCKET, SO_KEEPALIVE, &enableKeepAlive, sizeof(enableKeepAlive)) == -1) {
+        die("ERROR: setsocketopt(), SO_KEEPALIVE");
+    }
+
+    int keepcnt = KEEP_ALIVE_TCP_KEEPCNT;
+    if (setsockopt(socketServerFd, SOL_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt))) {
+        die("ERROR: setsocketopt(), TCP_KEEPCNT");
+    }
+
+    int idle = KEEP_ALIVE_TCP_KEEPIDLE;
+    if (setsockopt(socketServerFd, SOL_TCP, TCP_KEEPIDLE, &idle, sizeof(idle))) {
+        die("ERROR: setsocketopt(), TCP_KEEPIDLE");
+    }
+
+    int interval = KEEP_ALIVE_TCP_KEEPINTVL;
+    if (setsockopt(socketServerFd, SOL_TCP, TCP_KEEPINTVL, &interval, sizeof(interval))) {
+        die("ERROR: setsocketopt(), TCP_KEEPINTVL");
+    }
 }
