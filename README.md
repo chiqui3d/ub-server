@@ -6,7 +6,7 @@ Currently, it is being developed with **Epoll** to accept client connections via
 
 My intention is to create another `accept_client_*.c` for `fork` and another for `thread` and test the differences with [wrk](https://github.com/wg/wrk), to learn along the way.
 
-I have added a **priority queue with the heap** data structure (min-heap), to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser, it does not work with tabs.
+I have added a **priority queue with the heap** data structure (min-heap), to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser.
 
 I have also created a small library for logging and you can print the logs to a file if you wish. If you comment out the line of code in the Makefile containing `CFLAGS += -DNDEBUG`, you will be able to see the logs directly in the console instead of in a file.
 
