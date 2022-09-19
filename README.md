@@ -87,14 +87,14 @@ Transfer/sec:      2.05MB
 I am not very happy with these results.
 
 ```
-Running 30s test @ http://127.0.0.1:3001/index.html
+Running 30s test @ http://127.0.0.1:3001
   2 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   495.92ms   37.06ms 547.16ms   95.64%
-    Req/Sec   104.99     55.14   212.00     62.80%
-  6006 requests in 30.10s, 88.32MB read
-Requests/sec:    199.55
-Transfer/sec:      2.93MB
+    Latency   465.64ms   43.21ms 601.18ms   90.28%
+    Req/Sec   106.96     38.61   202.00     72.29%
+  6398 requests in 30.08s, 93.98MB read
+Requests/sec:    212.71
+Transfer/sec:      3.12MB
 
 ```
 
