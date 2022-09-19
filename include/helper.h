@@ -16,6 +16,7 @@
 int makeSocketNonBlocking(int fd);
 char *timeToDatetimeString(time_t time, char *format);
 
+void strCopySafe(char *dest, char *src);
 char *toLower(char *str, size_t len);
 char *toUpper(char *str, size_t len);
 

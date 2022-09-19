@@ -10,9 +10,9 @@
 
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
+#include "helper.h"
 #include "response.h"
 #include "server.h"
-
 
 void unsupportedProtocolResponse(int clientFd, char *protocolVersion) {
     char responseBuffer[1024];
@@ -47,22 +47,22 @@ void freeResponse(struct Response *response) {
     free(response);
 }
 
-void sendResponse(struct Response *response, int clientFd) {
+void sendResponse(struct Response *response, struct Request *request, int clientFd) {
 
     if (response->bodyFd == -1) {
         char responseBuffer[1024];
         if (response->statusCode == HTTP_STATUS_NOT_FOUND) {
-            // TODO: Change absolutePath to request->path
-            sprintf(responseBuffer, notFoundResponseTemplate, response->absolutePath);
+            snprintf(responseBuffer, sizeof(responseBuffer), notFoundResponseTemplate, request->path);
         } else {
-            strcpy(responseBuffer, internalServerResponseTemplate);
+            snprintf(responseBuffer, sizeof(responseBuffer), "%s", internalServerResponseTemplate);
         }
         sendAll(clientFd, responseBuffer, strlen(responseBuffer));
         return;
     }
 
     char statusCodeReason[33];
-    strncpy(statusCodeReason, HTTP_STATUS_REASON(response->statusCode), sizeof(statusCodeReason));
+    strCopySafe(statusCodeReason, (char*)HTTP_STATUS_REASON(response->statusCode));
+
     magic_t magic = magic_open(MAGIC_MIME_TYPE | MAGIC_PRESERVE_ATIME | MAGIC_SYMLINK | MAGIC_ERROR);
     // get current directory path
     char cwd[1024];
@@ -76,16 +76,17 @@ void sendResponse(struct Response *response, int clientFd) {
      *  /usr/lib/file/magic.mgc
      *  /usr/share/misc/magic.mgc
      **/
-    strcat(cwd, "/include/web.magic.mgc:/usr/share/misc/magic.mgc");
+    strncat(cwd, "/include/web.magic.mgc:/usr/share/misc/magic.mgc", 49);
     if (magic_load(magic, cwd) != 0) {
         magic_close(magic);
         die("magic_load() error");
     }
     const char *magicMimeType = magic_descriptor(magic, response->bodyFd);
     char mimeType[150];
-    strcpy(mimeType, magicMimeType);
+    strCopySafe(mimeType, (char *)magicMimeType);
+
     if (strcmp(mimeType, "text/") > 0) {
-        strcat(mimeType, "; charset=UTF-8");
+        strncat(mimeType, "; charset=UTF-8", 16);
     }
     magic_close(magic);
 
@@ -98,25 +99,26 @@ void sendResponse(struct Response *response, int clientFd) {
     tm = localtime(&now);
     strftime(currentDate, 100, "%a, %d %b %Y %H:%M:%S GMT", tm);
 
-    char responseHeader[1024];
-    // concat string with format https://stackoverflow.com/a/2674333
-    sprintf(responseHeader, "%s %u %s\n", response->protocolVersion, response->statusCode, statusCodeReason);
+    size_t responseHeaderSize = 1024;
+    char responseHeader[responseHeaderSize];
+    size_t offset = snprintf(responseHeader, responseHeaderSize, "%s %u %s\n", response->protocolVersion, response->statusCode, statusCodeReason);
     struct Header *header = response->headers;
     while (header != NULL) {
-        sprintf(responseHeader + strlen(responseHeader), "%s: %s\n", header->name, header->value);
+        offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "%s: %s\n", header->name, header->value);
         header = header->next;
     }
-    sprintf(responseHeader + strlen(responseHeader), "content-length: %lu\n", response->size);
-    sprintf(responseHeader + strlen(responseHeader), "content-type: %s\n", mimeType);
-    sprintf(responseHeader + strlen(responseHeader), "date: %s\n", currentDate);
-    sprintf(responseHeader + strlen(responseHeader), "last-modified: %s\n", lastModifiedDate);
-    sprintf(responseHeader + strlen(responseHeader), "server: %s\n", "Undefined Behaviour Server");
-    //sprintf(responseHeader + strlen(responseHeader), "cache-control: %s\n\n", "private, max-age=86400, must-revalidate, stale-if-error=86400");
-    sprintf(responseHeader + strlen(responseHeader), "cache-control: %s\n\n", "private, no-cache, no-store, must-revalidate");
-    sendAll(clientFd, responseHeader, strlen(responseHeader));
+    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "content-length: %lu\n", response->size);
+    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "content-type: %s\n", mimeType);
+    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "date: %s\n", currentDate);
+    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "last-modified: %s\n", lastModifiedDate);
+    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "server: %s\n", "Undefined Behaviour Server");
+    // sprintf(responseHeader + strlen(responseHeader), "cache-control: %s\n\n", "private, max-age=86400, must-revalidate, stale-if-error=86400");
+    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "cache-control: %s\n\n", "private, no-cache, no-store, must-revalidate");
 
-    off_t offset = 0;
-    ssize_t sendBodyLen = sendfile(clientFd, response->bodyFd, &offset, response->size);
+    sendAll(clientFd, responseHeader, offset);
+
+    off_t bodyOffset = 0;
+    ssize_t sendBodyLen = sendfile(clientFd, response->bodyFd, &bodyOffset, response->size);
     if (sendBodyLen == -1) {
         logError("sendfile() failed: %s", response->absolutePath);
     }
@@ -136,7 +138,7 @@ struct Response *makeResponse(struct Request *request, char *htmlDir) {
 
     char path[1024];
     bool isIndex = false;
-    strcpy(path, request->path);
+    strCopySafe(path, request->path);
     char *tmpQuery = strchr(path, '?');
     if (tmpQuery != NULL) {
         *tmpQuery = '\0';
@@ -144,23 +146,24 @@ struct Response *makeResponse(struct Request *request, char *htmlDir) {
 
     if (path[0] == '/' && path[1] == '\0') {
         isIndex = true;
-        strcat(path, "index.html");
+        strncat(path, "index.html", 11);
     }
-
-    char *absolutePath = malloc(strlen(htmlDir) + strlen(path) + 1);
-    sprintf(absolutePath, "%s%s", htmlDir, path);
-    response->absolutePath = absolutePath;
+    size_t absolutePathSize = strlen(htmlDir) + strlen(path) + 1;
+    char absolutePath[absolutePathSize];
+    snprintf(absolutePath, absolutePathSize, "%s%s", htmlDir, path);
+    response->absolutePath = strdup(absolutePath);
 
     int bodyFd = open(response->absolutePath, O_RDONLY);
     if (bodyFd == -1) {
-        char errorPath[strlen(htmlDir) + strlen("/error/error.html") + 1];
+        size_t errorPathSize = strlen(htmlDir) + strlen("/error/error.html") + 1;
+        char errorPath[errorPathSize];
         // TODO: switch for errno with HTTP_STATUS_CODE and save message in Response ?
         if (errno == ENOENT) {
             response->statusCode = HTTP_STATUS_NOT_FOUND;
-            sprintf(errorPath, "%s%s", htmlDir, "/error/404.html");
+            snprintf(errorPath, errorPathSize, "%s%s", htmlDir, "/error/404.html");
         } else {
             response->statusCode = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-            sprintf(errorPath, "%s%s", htmlDir, "/error/error.html");
+            snprintf(errorPath, errorPathSize, "%s%s", htmlDir, "/error/error.html");
         }
         logError("HTML file not found %s", request->path);
         bodyFd = open(errorPath, O_RDONLY);
@@ -203,6 +206,6 @@ size_t sendAll(int fd, const void *buffer, size_t count) {
             left_to_write -= written;
         }
     }
-    
+
     return count;
 }

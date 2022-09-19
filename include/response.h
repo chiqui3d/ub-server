@@ -24,7 +24,7 @@ void freeResponse(struct Response *response);
 
 struct Response *makeResponse(struct Request *request, char *htmlDir);
 
-void sendResponse(struct Response *response, int clientFd);
+void sendResponse(struct Response *response, struct Request *request, int clientFd);
 
 size_t sendAll(int fd, const void *buffer, size_t count);
 

@@ -105,6 +105,7 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
 
                 // consoleDebug("Buffer:\n%s", buffer);
                 struct Request *request = makeRequest(buffer, clientFd);
+
                 // Hardcoded for now
                 if (strncmp(request->protocolVersion, "HTTP/1.1", 8) != 0) {
                     unsupportedProtocolResponse(clientFd, request->protocolVersion);
@@ -132,13 +133,14 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                 }
                 if (connectionHeader != NULL && *connectionHeader == 'k') {
                     response->headers = addHeader(response->headers, "connection", "keep-alive");
-                    char headerKeepAliveValue[11];
-                    sprintf(headerKeepAliveValue, "timeout=%i", KEEP_ALIVE_TIMEOUT);
+                    size_t lenHeaderKeepAlive = snprintf(NULL, 0, "timeout=%i", KEEP_ALIVE_TIMEOUT);
+                    char headerKeepAliveValue[lenHeaderKeepAlive + 1];
+                    snprintf(headerKeepAliveValue, lenHeaderKeepAlive + 1, "timeout=%i", KEEP_ALIVE_TIMEOUT);                    
                     response->headers = addHeader(response->headers, "keep-alive", headerKeepAliveValue);
                 }
 
                 // response
-                sendResponse(response, clientFd);
+                sendResponse(response,request, clientFd);
                 if (closeConnection == false) {
                     if (IndexQueueConnectionsFd[clientFd] == -1) {
                         struct ConnectionTimeoutElement connectionQueueElement = {time(NULL), clientFd};

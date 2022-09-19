@@ -6,7 +6,7 @@
 #include "../lib/logger/logger.h"
 #include "../lib/die/die.h"
 #include "../lib/color/color.h"
-
+#include "helper.h"
 
 struct Logger LOGGER;
 struct Options OPTIONS;
@@ -24,13 +24,15 @@ void printOptions(struct Options options) {
     "HTML dir: %s\n"
     "Logger: %s\n"
     "Logger path: %s\n"
-    "TCP Keep-Alive: %s\n\n",
+   // "TCP Keep-Alive: %s\n\n"
+    ,
     options.address,
     options.port,
     options.htmlDir,
     LOGGER.active ? "file" : "stderr",
-    LOGGER.path,
-    options.TCPKeepAlive ? "On" : "Off");
+    LOGGER.path[0]== '\0' ? "stderr" : LOGGER.path
+    //,options.TCPKeepAlive ? "On" : "Off"
+    );
 }
 
 struct Options getOptions(int argc, char *argv[]) {
@@ -47,7 +49,7 @@ struct Options getOptions(int argc, char *argv[]) {
     // DEFAULT OPTIONS
     struct Options options;
     memset(&options, 0, sizeof(struct Options));
-    strcpy(options.address, "localhost");
+    strncpy(options.address, "localhost", 10);
     options.port = 3001;
     options.TCPKeepAlive = false;
 
@@ -57,32 +59,42 @@ struct Options getOptions(int argc, char *argv[]) {
     if (getcwd(HtmlDir, sizeof(HtmlDir)) == NULL) {
         die("HtmlDir getcwd() error");
     }
-    strcat(HtmlDir, "/public");
-    strcpy(options.htmlDir, HtmlDir);
+    snprintf(options.htmlDir, strlen(HtmlDir) + 7 + 1, "%s/public", HtmlDir);
 
     while ((command = getopt_long(argc, argv, shortOptions, longOptions, &option_index)) != -1) {
+
+        size_t optionArgLen = optarg ? strlen(optarg) : 0;
+
         switch (command) {
             case 'a':
-                strcpy(options.address, optarg);
+                strCopySafe(options.address, optarg);
                 break;
             case 'p':
                 options.port = (uint16_t)atoi(optarg);
                 break;
             case 'd':
-                strcpy(options.htmlDir, optarg);
+                strCopySafe(options.htmlDir, optarg);
                 break;
-            case 'l': {
+            case 'l': { // default logger path
                 LOGGER.active = true;
-                strcpy(LOGGER.path, DEFAULT_LOGGER_FILE_PATH);
+
+                strCopySafe(LOGGER.path, DEFAULT_LOGGER_FILE_PATH);
+
                 char loggerFileName[LOGGER_FILE_NAME_MAX];
-                strcpy(LOGGER.fileName, getLoggerFileName(loggerFileName));
+                getLoggerFileName(loggerFileName);
+                strCopySafe(LOGGER.fileName, loggerFileName);
+                
                 break;
             }
-            case 't': {
+            case 't': { // custom logger path
                 LOGGER.active = true;
-                strcpy(LOGGER.path, optarg);
+
+                strCopySafe(LOGGER.path, optarg);
+
                 char loggerFileName[LOGGER_FILE_NAME_MAX];
-                strcpy(LOGGER.fileName, getLoggerFileName(loggerFileName));
+                getLoggerFileName(loggerFileName);
+                strCopySafe(LOGGER.fileName, loggerFileName);
+
                 break;
             }
 

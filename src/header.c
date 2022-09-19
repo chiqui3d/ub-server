@@ -32,19 +32,6 @@ char *getHeader(struct Header *header, char *name) {
     return NULL;
 }
 
-char *getHeadersValues(struct Header *header) {
-    char *headers = malloc(1);
-    headers[0] = '\0';
-    while (header != NULL) {
-        char *tmp = malloc(strlen(header->value) + 2);
-        sprintf(tmp, "%s ", header->value);
-        headers = realloc(headers, strlen(headers) + strlen(tmp) + 1);
-        strcat(headers, tmp);
-        free(tmp);
-        header = header->next;
-    }
-    return headers;
-}
 
 void freeHeader(struct Header *header) {
 

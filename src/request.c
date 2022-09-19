@@ -1,15 +1,14 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 #include "../lib/color/color.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
-#include "request.h"
 #include "helper.h"
+#include "request.h"
 #include "server.h"
-
 
 char *readRequest(char *buffer, int clientFd, bool *doneForClose) {
 
@@ -18,7 +17,7 @@ char *readRequest(char *buffer, int clientFd, bool *doneForClose) {
     while (restBytesRead > 0) {                  // MSG_PEEK
         ssize_t bytesRead = recv(clientFd, buffer + totalBytesRead, restBytesRead, 0);
         if (bytesRead < 0) {
-            // Ignore EWOULDBLOCK|EAGAIN, it not mean you're disconnected, it just means there's nothing to read now 
+            // Ignore EWOULDBLOCK|EAGAIN, it not mean you're disconnected, it just means there's nothing to read now
             if (errno != EAGAIN || errno != EWOULDBLOCK) {
                 // possible ECONNRESET or EPIPE with wrk program
                 logError("recv() request failed");
@@ -35,7 +34,6 @@ char *readRequest(char *buffer, int clientFd, bool *doneForClose) {
     }
     buffer[totalBytesRead] = '\0';
 
-
     return buffer;
 }
 
@@ -47,8 +45,7 @@ struct Request *makeRequest(char *buffer, int clientFd) {
     }
 
     memset(request, 0, sizeof(struct Request));
-
-    strcpy(request->scheme, "http");
+    strncpy(request->scheme, "http", 5); // Hardcoded scheme for now
 
     // get ip address from clientFd socket
     struct sockaddr_in clientAddr;
@@ -58,7 +55,7 @@ struct Request *makeRequest(char *buffer, int clientFd) {
     }
 
     char *ip = inet_ntoa(clientAddr.sin_addr);
-    strcpy(request->ip, ip);
+    strCopySafe(request->ip,ip);
 
     char *firstLine = strstr(buffer, "\r\n"); // CRLF
     if (NULL == firstLine) {
@@ -86,7 +83,6 @@ struct Request *makeRequest(char *buffer, int clientFd) {
 
     request->path = strdup(path);
     request->protocolVersion = strdup(protocolVersion);
-   
 
     char *body = strstr(buffer, "\r\n\r\n"); // double CRLF pair to end of headers
 
@@ -149,13 +145,13 @@ struct Request *makeRequest(char *buffer, int clientFd) {
 }
 
 void freeRequest(struct Request *request) {
-    
+
     free(request->path);
     free(request->protocolVersion);
     if (request->body != NULL) {
         free(request->body);
     }
-    
+
     freeHeader(request->headers);
     free(request);
 }
@@ -188,9 +184,10 @@ void logRequest(struct Request *request) {
     char URL[REQUEST_PATH_MAX_SIZE];
 
     if (host != NULL) {
-       sprintf(URL, "%s%s%s%s",request->scheme,"://", host, request->path);
-    }else{
-       strcpy(URL, "<URL>");
+        size_t URLLen = snprintf(NULL,0, "%s%s%s%s", request->scheme, "://", host, request->path);
+        snprintf(URL, URLLen + 1, "%s%s%s%s", request->scheme, "://", host, request->path);
+    } else {
+        strncpy(URL, "<URL>", 6);
     }
 
     logInfo("Request | \"%s %s %s\" - %lu - %s - %s - %s - \"%s\"",

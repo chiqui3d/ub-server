@@ -3,6 +3,7 @@
 #include <fcntl.h>  // for fcntl() nonblocking socket
 #include <stdio.h>  // for perror()
 #include <stdlib.h> // for malloc()
+#include <string.h> // for strlen()
 
 #include "../lib/die/die.h"
 
@@ -24,6 +25,13 @@ int makeSocketNonBlocking(int fd) {
 
     return 0;
 }
+
+void strCopySafe(char *dest, char *src) {
+    size_t srcLen = strlen(src);
+    strncpy(dest, src, srcLen + 1);
+    dest[srcLen] = '\0';
+}
+
 
 char *timeToDatetimeString(time_t time, char *format) {
     struct tm *timeInfo = localtime(&time);
