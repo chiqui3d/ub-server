@@ -101,7 +101,8 @@ Transfer/sec:      2.93MB
 # TODO
 
 * [x] Add support for HTTP keep-alive connections
-* [ ] Add support for Accept-Ranges https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
+* [ ] Add support for Accept-Ranges 
+     * https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
 * [ ] Add fork and thread alternative example
 * [ ] Reduce the number of times dynamic memory is used with `malloc`
 * [ ] Add support for compression
