@@ -8,14 +8,13 @@
 
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
+#include "accept_client_epoll.h"
 #include "handle_timeout_connections.h"
 #include "helper.h"
 #include "options.h"
 #include "request.h"
 #include "response.h"
 #include "server.h"
-#include "accept_client_epoll.h"
-
 
 struct Options OPTIONS;
 struct QueueConnectionsTimeout queueConnectionsTimeout;
@@ -98,66 +97,63 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                 char buffer[BUFFER_REQUEST_SIZE];
                 bool doneForClose = 0;
                 readRequest(buffer, clientFd, &doneForClose);
-                if (doneForClose == 1) {
+                if (doneForClose == 1) { // request close connection
                     logDebug(BLUE "Done for close" RESET);
                     dequeueConnectionByFd(clientFd);
                     closeClient(epollFd, clientFd);
-                    clientFd = -1;
                     continue;
                 }
 
-                if (clientFd != -1 && strlen(buffer) > 0) {
-                    // consoleDebug("Buffer:\n%s", buffer);
-                    struct Request *request = makeRequest(buffer, clientFd);
-                    // Hardcoded for now
-                    if (strncmp(request->protocolVersion, "HTTP/1.1", 8) != 0) {
-                        unsupportedProtocolResponse(clientFd, request->protocolVersion);
-                        freeRequest(request);
-                        continue;
-                    }
-                    if (strcmp(request->path, "/hello") == 0) {
-                        helloResponse(clientFd);
-                        freeRequest(request);
-                        continue;
-                    }
-                    // make response
-                    struct Response *response = makeResponse(request, OPTIONS.htmlDir);
-
-                    // connection
-                    char *connectionHeader = getHeader(request->headers, "connection");
-                    bool closeConnection = false;
-
-                    // if not keep-alive in the request header, close connection
-                    if (connectionHeader == NULL || (connectionHeader != NULL && *connectionHeader == 'c')) {
-                        closeConnection = true;
-                        response->headers = addHeader(response->headers, "connection", "close");
-                    }
-                    if (connectionHeader != NULL && *connectionHeader == 'k') {
-                        response->headers = addHeader(response->headers, "connection", "keep-alive");
-                        char headerKeepAliveValue[11];
-                        sprintf(headerKeepAliveValue, "timeout=%i", KEEP_ALIVE_TIMEOUT);
-                        response->headers = addHeader(response->headers, "keep-alive", headerKeepAliveValue);
-                    }
-
-                    // response
-                    sendResponse(response, clientFd);
-                    if (closeConnection == false) {
-                        if (indexQueueConnectionsFd[clientFd] == -1) {
-                            struct ConnectionTimeoutElement connectionQueueElement = {time(NULL), clientFd};
-                            enqueueConnection(connectionQueueElement);
-                        } else {
-                            updateQueueConnection(clientFd, time(NULL));
-                        }
-                    } else {
-                        dequeueConnectionByFd(clientFd);
-                        closeClient(epollFd, clientFd);
-                    }
-                    // printRequest(request);
-                    freeResponse(response);
-                    logRequest(request);
+                // consoleDebug("Buffer:\n%s", buffer);
+                struct Request *request = makeRequest(buffer, clientFd);
+                // Hardcoded for now
+                if (strncmp(request->protocolVersion, "HTTP/1.1", 8) != 0) {
+                    unsupportedProtocolResponse(clientFd, request->protocolVersion);
                     freeRequest(request);
-                    
+                    continue;
                 }
+                if (strcmp(request->path, "/hello") == 0) {
+                    helloResponse(clientFd);
+                    freeRequest(request);
+                    continue;
+                }
+                // make response
+                struct Response *response = makeResponse(request, OPTIONS.htmlDir);
+
+                // connection
+                char *connectionHeader = getHeader(request->headers, "connection");
+                bool closeConnection = false;
+
+                // if not keep-alive in the request header, close connection
+                if (connectionHeader == NULL || (connectionHeader != NULL && *connectionHeader == 'c')) {
+                    closeConnection = true;
+                    response->headers = addHeader(response->headers, "connection", "close");
+                }
+                if (connectionHeader != NULL && *connectionHeader == 'k') {
+                    response->headers = addHeader(response->headers, "connection", "keep-alive");
+                    char headerKeepAliveValue[11];
+                    sprintf(headerKeepAliveValue, "timeout=%i", KEEP_ALIVE_TIMEOUT);
+                    response->headers = addHeader(response->headers, "keep-alive", headerKeepAliveValue);
+                }
+
+                // response
+                sendResponse(response, clientFd);
+                if (closeConnection == false) {
+                    if (indexQueueConnectionsFd[clientFd] == -1) {
+                        struct ConnectionTimeoutElement connectionQueueElement = {time(NULL), clientFd};
+                        enqueueConnection(connectionQueueElement);
+                    } else {
+                        // update priorityTime and re-order queue
+                        updateQueueConnection(clientFd, time(NULL));
+                    }
+                } else {
+                    dequeueConnectionByFd(clientFd);
+                    closeClient(epollFd, clientFd);
+                }
+                // printRequest(request);
+                freeResponse(response);
+                logRequest(request);
+                freeRequest(request);
 
             } else if ((events[i].events & EPOLLERR) ||
                        (events[i].events & EPOLLHUP) ||
@@ -167,7 +163,7 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
             }
         }
 
-       //printQueueConnections();
+        // printQueueConnections();
     }
 }
 
