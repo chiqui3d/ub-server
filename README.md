@@ -111,6 +111,7 @@ Transfer/sec:      2.93MB
 * [ ] Add more optimizations
 * [ ] Add support for HTTPS
 * [ ] Add tests
+* [ ] Daemonize the server
 * [ ] Decouple logging from main program (thread and queue)
 
 # References
