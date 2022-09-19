@@ -82,7 +82,7 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
 
         int i, num_ready;
         // -1 block forever, 0 non-blocking, > 0 timeout in milliseconds
-        num_ready = epoll_wait(epollFd, events, MAX_EPOLL_EVENTS, timeout /*timeout*/);
+        num_ready = epoll_wait(epollFd, events, MAX_EPOLL_EVENTS, timeout);
         if (num_ready < 0) {
             logWarning("epoll_wait failed");
         }
@@ -131,6 +131,8 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                     closeConnection = true;
                     response->headers = addHeader(response->headers, "connection", "close");
                 }
+
+                // add keep-alive header
                 if (connectionHeader != NULL && *connectionHeader == 'k') {
                     response->headers = addHeader(response->headers, "connection", "keep-alive");
                     size_t lenHeaderKeepAlive = snprintf(NULL, 0, "timeout=%i", KEEP_ALIVE_TIMEOUT);
