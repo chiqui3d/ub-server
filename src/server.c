@@ -71,7 +71,6 @@ void serverRun(struct Options options) {
 
     // SOMAXCONN: Maximum connections queue (not accepted yet)
     // cat /proc/sys/net/core/somaxconn
-
     if (listen(socketServerFd, 4096) == -1) {
         die("listen");
     }
