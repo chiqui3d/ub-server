@@ -34,6 +34,6 @@ volatile sig_atomic_t sigintReceived;
 void serverRun(struct Options options);
 
 int makeSocketNonBlocking(int sfd);
-void makeKeepAlive(int socketFd);
+void makeTCPKeepAlive(int socketFd);
 
 #endif // SERVER_H

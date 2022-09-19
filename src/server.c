@@ -28,7 +28,7 @@ void serverRun(struct Options options) {
     }
 
     if (OPTIONS.TCPKeepAlive) {
-        makeKeepAlive(socketServerFd);
+        makeTCPKeepAlive(socketServerFd);
     }
     /* struct linger so_linger;
     so_linger.l_onoff = true;
@@ -82,7 +82,7 @@ void serverRun(struct Options options) {
     close(socketServerFd);
 }
 
-void makeKeepAlive(int socketServerFd) {
+void makeTCPKeepAlive(int socketServerFd) {
     int enableKeepAlive = 1;
     if (setsockopt(socketServerFd, SOL_SOCKET, SO_KEEPALIVE, &enableKeepAlive, sizeof(enableKeepAlive)) == -1) {
         die("ERROR: setsocketopt(), SO_KEEPALIVE");
