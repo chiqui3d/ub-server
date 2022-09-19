@@ -1,6 +1,4 @@
 /**
- * @file handle_timeout_connections.c
- * @author chiqui3d
  *
  * @brief Persistent connections timeout handler (HTTP/1.1 keep-alive)
  * Code to manage the queue of client connections through the min-heap data structure and an array
@@ -8,6 +6,7 @@
  * It may happen that they connect before they leave the queue and then the time needs to be reset.
  *
  * @version 0.1
+ * @author chiqui3d
  * @date 2022-09-17
  *
  *
