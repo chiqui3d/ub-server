@@ -73,7 +73,9 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
 
         // check for CLOSE client connection by time_t
         while (lastConnectionQueueElement.fd != 0 && difftime(now, lastConnectionQueueElement.priorityTime) >= KEEP_ALIVE_TIMEOUT) {
-            logDebug(BLUE "Close by timeout with fd %i and time_t %ld" RESET, lastConnectionQueueElement.fd, lastConnectionQueueElement.priorityTime);
+            char date[DATETIME_HELPER_SIZE];
+            timeToDatetimeString(lastConnectionQueueElement.priorityTime, date);
+            logDebug(BLUE "Close by timeout with fd %i and dateTime %s" RESET, lastConnectionQueueElement.fd, date);
             dequeueConnection();
             closeClient(epollFd, lastConnectionQueueElement.fd);
             lastConnectionQueueElement = peekQueueConnections();
