@@ -104,13 +104,13 @@ Transfer/sec:      2.93MB
 * [ ] Add support for Accept-Ranges https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
 * [ ] Add fork and thread alternative example
 * [ ] Reduce the number of times dynamic memory is used with `malloc`
-* [ ] Decouple logging from main program (thread and queue)
 * [ ] Add support for compression
      * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
      * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
 * [ ] Add more optimizations
 * [ ] Add support for HTTPS
 * [ ] Add tests
+* [ ] Decouple logging from main program (thread and queue)
 
 # References
 
