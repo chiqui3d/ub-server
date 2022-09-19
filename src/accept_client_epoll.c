@@ -82,7 +82,6 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
 
         int i, num_ready;
         // -1 block forever, 0 non-blocking, > 0 timeout in milliseconds
-        // -1 is necessary for accept new connections
         num_ready = epoll_wait(epollFd, events, MAX_EPOLL_EVENTS, timeout /*timeout*/);
         if (num_ready < 0) {
             logWarning("epoll_wait failed");
