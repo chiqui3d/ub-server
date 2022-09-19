@@ -2,7 +2,7 @@
  * @file handle_timeout_connections.c
  * @author chiqui3d
  *
- * @brief
+ * @brief Persistent connections timeout handler
  * Code to manage the queue of client connections through the min-heap data structure and an array
  * to store the index of the heap, in order to update the descriptor files, in case they need to update the time.
  * It may happen that they connect before they leave the queue and then the time needs to be reset.

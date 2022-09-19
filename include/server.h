@@ -4,7 +4,7 @@
 #define BUFFER_REQUEST_SIZE 1024
 #define BUFFER_RESPONSE_SIZE 4096
 #define MAX_CONNECTIONS 1000
-#define KEEP_ALIVE_TIMEOUT 30 // seconds
+#define KEEP_ALIVE_TIMEOUT 60 // seconds
 
 // TCP Keep Alive, TCP and HTTP keep-alive are different
 // https://stackoverflow.com/questions/411460/use-http-keep-alive-for-server-to-communicate-to-client
@@ -12,6 +12,7 @@
 // https://datatracker.ietf.org/doc/html/draft-thomson-hybi-http-timeout-03#section-2
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Keep-Alive
 // https://www.rfc-editor.org/rfc/rfc2068
+// https://www.rfc-editor.org/rfc/rfc2616.html#page-44
 
 // tcp_keepalive_probes (number): the number of unacknowledged probes to send before considering the connection dead
 #define KEEP_ALIVE_TCP_KEEPCNT 20

@@ -61,10 +61,28 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
     createQueueConnections();
 
     while (!sigintReceived) {
+        // calculate epoll timeout
+        time_t now = time(NULL);
+        struct ConnectionTimeoutElement lastConnectionQueueElement = peekQueueConnections();
+        int timeout = -1;
+        if (lastConnectionQueueElement.fd != 0) {
+            timeout = ((lastConnectionQueueElement.priorityTime + KEEP_ALIVE_TIMEOUT) - now) * 1000;
+        }
+
+        logDebug(BLUE "timeout: %d" RESET, timeout);
+
+        // check for CLOSE client connection by time_t
+        while (lastConnectionQueueElement.fd != 0 && difftime(now, lastConnectionQueueElement.priorityTime) >= KEEP_ALIVE_TIMEOUT) {
+            logDebug(BLUE "Close by timeout with fd %i and time_t %ld" RESET, lastConnectionQueueElement.fd, lastConnectionQueueElement.priorityTime);
+            dequeueConnection();
+            closeClient(epollFd, lastConnectionQueueElement.fd);
+            lastConnectionQueueElement = peekQueueConnections();
+        }
+
         int i, num_ready;
         // -1 block forever, 0 non-blocking, > 0 timeout in milliseconds
         // -1 is necessary for accept new connections
-        num_ready = epoll_wait(epollFd, events, MAX_EPOLL_EVENTS, (int)(KEEP_ALIVE_TIMEOUT / 2) * 1000 /*timeout*/);
+        num_ready = epoll_wait(epollFd, events, MAX_EPOLL_EVENTS, timeout /*timeout*/);
         if (num_ready < 0) {
             logWarning("epoll_wait failed");
         }
@@ -121,10 +139,6 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
 
                     // response
                     sendResponse(response, clientFd);
-                    // printRequest(request);
-                    freeResponse(response);
-                    logRequest(request);
-                    freeRequest(request);
                     if (closeConnection == false) {
                         if (indexQueueConnectionsFd[clientFd] == -1) {
                             struct ConnectionTimeoutElement connectionQueueElement = {time(NULL), clientFd};
@@ -136,6 +150,11 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                         dequeueConnectionByFd(clientFd);
                         closeClient(epollFd, clientFd);
                     }
+                    // printRequest(request);
+                    freeResponse(response);
+                    logRequest(request);
+                    freeRequest(request);
+                    
                 }
 
             } else if ((events[i].events & EPOLLERR) ||
@@ -146,19 +165,7 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
             }
         }
 
-        // check connection client timeout
-
-        struct ConnectionTimeoutElement lastConnectionQueueElement = peekQueueConnections();
-        while (lastConnectionQueueElement.fd != 0 && difftime(time(NULL), lastConnectionQueueElement.priorityTime) >= KEEP_ALIVE_TIMEOUT) {
-            logDebug(BLUE "Close by timeout with fd %i and time_t %ld" RESET, lastConnectionQueueElement.fd, lastConnectionQueueElement.priorityTime);
-            dequeueConnection();
-            closeClient(epollFd, lastConnectionQueueElement.fd);
-            lastConnectionQueueElement = peekQueueConnections();
-        }
-        char datetime[DATETIME_HELPER_SIZE];
-        timeToDatetimeString(time(NULL), datetime);
-        logDebug("FDs processed, now waiting again for %d seconds in the time: %s", (int)(KEEP_ALIVE_TIMEOUT / 2), datetime);
-        printQueueConnections();
+       //printQueueConnections();
     }
 }
 
@@ -167,7 +174,7 @@ void acceptConnection(int epollFd, int socketServerFd) {
         struct sockaddr_in client_address;
         socklen_t client_address_len = sizeof(client_address);
         int clientFd = accept(socketServerFd, (struct sockaddr *)&client_address, &client_address_len);
-        // alternative to makeSocketNonBlocking
+        // alternative to makeSocketNonBlocking function with fcntl
         // int client_fd = accept4(socket_server_fd, (struct sockaddr *)&client_address, (socklen_t *)&client_address_len, SOCK_NONBLOCK);
 
         if (clientFd < 0) {
