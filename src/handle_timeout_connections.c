@@ -177,6 +177,8 @@ void printQueueConnections() {
     for (i = 0; i < queueConnectionsTimeout.currentSize; i++) {
         int index = IndexQueueConnectionsFd[queueConnectionsTimeout.connections[i].fd];
         timeToDatetimeString(queueConnectionsTimeout.connections[i].priorityTime, date);
+        // We show both the queue data and the array that stores the queue indexes, 
+        // to see if they match between updates and deletes.
         logDebug("index: %d, fd: %d, time: %ld, date: %s | index: %d, fd: %d, time: %ld",
                i,
                queueConnectionsTimeout.connections[i].fd,
