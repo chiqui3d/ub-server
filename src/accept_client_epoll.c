@@ -18,7 +18,7 @@
 
 struct Options OPTIONS;
 struct QueueConnectionsTimeout queueConnectionsTimeout;
-int indexQueueConnectionsFd[MAX_CONNECTIONS];
+int IndexQueueConnectionsFd[MAX_CONNECTIONS];
 
 struct epoll_event buildEvent(int events, int fd) {
     struct epoll_event event = {0};
@@ -109,11 +109,13 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                 // Hardcoded for now
                 if (strncmp(request->protocolVersion, "HTTP/1.1", 8) != 0) {
                     unsupportedProtocolResponse(clientFd, request->protocolVersion);
+                    logRequest(request);
                     freeRequest(request);
                     continue;
                 }
                 if (strcmp(request->path, "/hello") == 0) {
                     helloResponse(clientFd);
+                    logRequest(request);
                     freeRequest(request);
                     continue;
                 }
@@ -139,7 +141,7 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                 // response
                 sendResponse(response, clientFd);
                 if (closeConnection == false) {
-                    if (indexQueueConnectionsFd[clientFd] == -1) {
+                    if (IndexQueueConnectionsFd[clientFd] == -1) {
                         struct ConnectionTimeoutElement connectionQueueElement = {time(NULL), clientFd};
                         enqueueConnection(connectionQueueElement);
                     } else {

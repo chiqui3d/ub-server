@@ -19,7 +19,7 @@ struct QueueConnectionsTimeout {
 };
 
 extern struct QueueConnectionsTimeout queueConnectionsTimeout;
-extern int indexQueueConnectionsFd[MAX_CONNECTIONS];
+extern int IndexQueueConnectionsFd[MAX_CONNECTIONS];
 
 
 

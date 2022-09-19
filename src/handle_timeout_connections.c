@@ -24,13 +24,13 @@
 #include "helper.h"
 
 struct QueueConnectionsTimeout queueConnectionsTimeout;
-int indexQueueConnectionsFd[MAX_CONNECTIONS];
+int IndexQueueConnectionsFd[MAX_CONNECTIONS];
 
 void createQueueConnections() {
     memset(queueConnectionsTimeout.connections, 0, MAX_CONNECTIONS);
     queueConnectionsTimeout.currentSize = 0;
     queueConnectionsTimeout.capacity = (int)MAX_CONNECTIONS;
-    memset(indexQueueConnectionsFd, -1, MAX_CONNECTIONS);
+    memset(IndexQueueConnectionsFd, -1, MAX_CONNECTIONS);
 }
 
 void enqueueConnection(struct ConnectionTimeoutElement connection) {
@@ -51,14 +51,14 @@ void enqueueConnection(struct ConnectionTimeoutElement connection) {
     }
     logDebug(GREEN "Enqueue connection fd %d in the index %d" RESET, connection.fd, indexQueue);
     // assign the index of the heap to the array
-    indexQueueConnectionsFd[connection.fd] = indexQueue;
+    IndexQueueConnectionsFd[connection.fd] = indexQueue;
 }
 
 void updateQueueConnection(int fd, time_t now) {
 
     logDebug(RED "Update queue connection fd %d" RESET, fd);
 
-    int index = indexQueueConnectionsFd[fd];
+    int index = IndexQueueConnectionsFd[fd];
     time_t oldPriorityTime = queueConnectionsTimeout.connections[index].priorityTime;
     queueConnectionsTimeout.connections[index].priorityTime = now;
 
@@ -69,7 +69,7 @@ void updateQueueConnection(int fd, time_t now) {
             swapConnectionElementHeap(&queueConnectionsTimeout.connections[index], &queueConnectionsTimeout.connections[parentHeap(index)]);
             index = parentHeap(index);
         }
-        indexQueueConnectionsFd[fd] = index;
+        IndexQueueConnectionsFd[fd] = index;
     } else {
         logDebug(RED "Shift down" RESET);
         // shiftDown
@@ -92,8 +92,8 @@ void dequeueConnection() {
     // remove the last element
     queueConnectionsTimeout.currentSize--;
     // remove the index of the heap from the array
-    indexQueueConnectionsFd[fd0] = -1;
-    indexQueueConnectionsFd[fdLast] = 0;
+    IndexQueueConnectionsFd[fd0] = -1;
+    IndexQueueConnectionsFd[fdLast] = 0;
     // shiftDown
     heapify(0);
 }
@@ -104,7 +104,7 @@ void dequeueConnectionByFd(int fd) {
         return;
     }
     logDebug("Dequeue connection fd %d", fd);
-    int index = indexQueueConnectionsFd[fd];
+    int index = IndexQueueConnectionsFd[fd];
     if (index == -1) {
         logDebug(RED "The fd %d is not in the queue" RESET, fd);
         return;
@@ -116,8 +116,8 @@ void dequeueConnectionByFd(int fd) {
     // remove the last element
     queueConnectionsTimeout.currentSize--;
     // remove the index of the heap from the array
-    indexQueueConnectionsFd[fd] = -1;
-    indexQueueConnectionsFd[fdLast] = index;
+    IndexQueueConnectionsFd[fd] = -1;
+    IndexQueueConnectionsFd[fdLast] = index;
     // shiftDown
     heapify(index);
 }
@@ -146,8 +146,8 @@ void heapify(int index) {
     }
     if (smallest != index) { // if the smallest is not the current index, then swap
         swapConnectionElementHeap(&queueConnectionsTimeout.connections[index], &queueConnectionsTimeout.connections[smallest]);
-        indexQueueConnectionsFd[queueConnectionsTimeout.connections[index].fd] = index;
-        indexQueueConnectionsFd[queueConnectionsTimeout.connections[smallest].fd] = smallest;
+        IndexQueueConnectionsFd[queueConnectionsTimeout.connections[index].fd] = index;
+        IndexQueueConnectionsFd[queueConnectionsTimeout.connections[smallest].fd] = smallest;
         heapify(smallest);
     }
 }
@@ -175,7 +175,7 @@ void printQueueConnections() {
     int i;
     char date[20];
     for (i = 0; i < queueConnectionsTimeout.currentSize; i++) {
-        int index = indexQueueConnectionsFd[queueConnectionsTimeout.connections[i].fd];
+        int index = IndexQueueConnectionsFd[queueConnectionsTimeout.connections[i].fd];
         timeToDatetimeString(queueConnectionsTimeout.connections[i].priorityTime, date);
         logDebug("index: %d, fd: %d, time: %ld, date: %s | index: %d, fd: %d, time: %ld",
                i,
