@@ -47,7 +47,7 @@ void addClient(int epollFd, int clientFd) {
     }
 }
 
-void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, socklen_t socketAddressLen) {
+void acceptClientsEpoll(int socketServerFd, struct sockaddr_in *socketAddress, socklen_t socketAddressLen) {
 
     int epollFd = epoll_create1(0);
     if (epollFd < 0) {
@@ -88,14 +88,20 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
         }
         for (i = 0; i < num_ready; i++) {
             if (events[i].data.fd == socketServerFd) {
+                // accept new client
                 consoleDebug(GREEN "Accepting new connection........." RESET);
                 acceptConnection(epollFd, socketServerFd);
+
             } else if (events[i].events & EPOLLIN) {
+                // read from client
                 int clientFd = events[i].data.fd;
+
                 consoleDebug(GREEN "Reading from client fd %i........." RESET, clientFd);
+
                 char buffer[BUFFER_REQUEST_SIZE];
                 bool doneForClose = 0;
                 readRequest(buffer, clientFd, &doneForClose);
+
                 if (doneForClose == 1) { // request close connection
                     logDebug(BLUE "Done for close" RESET);
                     dequeueConnectionByFd(clientFd);
@@ -103,7 +109,6 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                     continue;
                 }
 
-                // consoleDebug("Buffer:\n%s", buffer);
                 struct Request *request = makeRequest(buffer, clientFd);
 
 

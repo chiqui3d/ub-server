@@ -7,7 +7,7 @@
 
 #define MAX_EPOLL_EVENTS 1000
 
-void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, socklen_t socketAddressLen);
+void acceptClientsEpoll(int socketServerFd, struct sockaddr_in *socketAddress, socklen_t socketAddressLen);
 
 void acceptConnection(int epollFd, int socketServerFd);
 

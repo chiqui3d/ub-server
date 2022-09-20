@@ -2,7 +2,6 @@
 #include <netdb.h>      // for getaddrinfo(),  getservbyname, gethostbyname()
 #include <sys/socket.h> // for socket()
 #include <unistd.h>     // for close()
-// #include <netinet/in.h> // for sockaddr_in
 #include <netinet/tcp.h> // for TCP_NODELAY
 #include <time.h>        // for time()
 
@@ -10,6 +9,7 @@
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "accept_client_epoll.h"
+//#include "accept_client_fork.h"
 #include "helper.h"
 #include "server.h"
 
@@ -30,12 +30,6 @@ void serverRun(struct Options options) {
     if (OPTIONS.TCPKeepAlive) {
         makeTCPKeepAlive(socketServerFd);
     }
-    /* struct linger so_linger;
-    so_linger.l_onoff = true;
-    so_linger.l_linger = 5;
-    if (setsockopt(socketServerFd, SOL_SOCKET,SO_LINGER,&so_linger, sizeof(so_linger)) == -1) {
-        die("setsockopt SO_LINGER");
-    } */
 
     // https://baus.net/on-tcp_cork/
     int enableTCP_NO_DELAY = 1;
@@ -77,7 +71,8 @@ void serverRun(struct Options options) {
 
     printf(GREEN "Server listening on http://%s:%d ..." RESET "\n\n", inet_ntoa(socketAddress.sin_addr), htons(socketAddress.sin_port));
 
-    acceptClients(socketServerFd, &socketAddress, socketAddressLen);
+    acceptClientsEpoll(socketServerFd, &socketAddress, socketAddressLen);
+    //acceptClientsFork(socketServerFd, &socketAddress, socketAddressLen);
 
     close(socketServerFd);
 }
