@@ -1,6 +1,6 @@
 # Undefined Behavior Server 👀
 
-**Undefined Behavior** is a HTTP 1.1 server made with **Epoll** and for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`)
+**Undefined Behavior Server** is a HTTP 1.1 server made with **Epoll** and for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`)
 
 Currently, it is being developed with **Epoll** to accept client connections via event notifications, in which the file descriptors of each client/connection are included for later use. All this can be seen in https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_epoll.c
 
