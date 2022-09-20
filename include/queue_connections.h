@@ -1,5 +1,5 @@
-#ifndef HANDLE_TIMEOUT_CONNECTIONS_H
-#define HANDLE_TIMEOUT_CONNECTIONS_H
+#ifndef QUEUE_CONNECTIONS_H
+#define QUEUE_CONNECTIONS_H
 
 #include <time.h>
 #include "server.h"
@@ -8,29 +8,29 @@
 #define MAX_CONNECTIONS 1000
 #endif
 
-struct ConnectionTimeoutElement {
+struct QueueConnectionElementType {
     time_t priorityTime;
     int fd; // file descriptor
 };
-struct QueueConnectionsTimeout {
-    struct ConnectionTimeoutElement connections[MAX_CONNECTIONS];
+struct QueueConnectionsType {
+    struct QueueConnectionElementType connections[MAX_CONNECTIONS];
     int currentSize;
     int capacity;
 };
 
-extern struct QueueConnectionsTimeout queueConnectionsTimeout;
+extern struct QueueConnectionsType QueueConnections;
 extern int IndexQueueConnectionsFd[MAX_CONNECTIONS];
 
 
 
 void createQueueConnections();
-void enqueueConnection(struct ConnectionTimeoutElement connection);
+void enqueueConnection(struct QueueConnectionElementType connection);
 void updateQueueConnection(int fd, time_t now);
 void dequeueConnection();
 void dequeueConnectionByFd(int fd);
-struct ConnectionTimeoutElement peekQueueConnections();
+struct QueueConnectionElementType peekQueueConnections();
 void heapify(int index);
-void swapConnectionElementHeap(struct ConnectionTimeoutElement *a, struct ConnectionTimeoutElement *b);
+void swapConnectionElementHeap(struct QueueConnectionElementType *a, struct QueueConnectionElementType *b);
 int leftChildHeap(int element);
 int rightChildHeap(int element);
 int parentHeap(int element);
@@ -39,4 +39,4 @@ void printQueueConnections();
 
 
 
-#endif // END HANDLE_TIMEOUT_CONNECTIONS_H
+#endif // END QUEUE_CONNECTIONS_H

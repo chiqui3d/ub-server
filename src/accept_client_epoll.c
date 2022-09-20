@@ -9,7 +9,7 @@
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "accept_client_epoll.h"
-#include "handle_timeout_connections.h"
+#include "queue_connections.h"
 #include "helper.h"
 #include "options.h"
 #include "request.h"
@@ -17,7 +17,7 @@
 #include "server.h"
 
 struct Options OPTIONS;
-struct QueueConnectionsTimeout queueConnectionsTimeout;
+struct QueueConnectionsType QueueConnections;
 int IndexQueueConnectionsFd[MAX_CONNECTIONS];
 
 struct epoll_event buildEvent(int events, int fd) {
@@ -62,10 +62,10 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
     while (!sigintReceived) {
         // calculate epoll timeout
         time_t now = time(NULL);
-        struct ConnectionTimeoutElement lastConnectionQueueElement = peekQueueConnections();
+        struct QueueConnectionElementType lastConnectionQueueElement = peekQueueConnections();
         int timeout = -1;
         if (lastConnectionQueueElement.fd != 0) {
-            timeout = ((lastConnectionQueueElement.priorityTime + KEEP_ALIVE_TIMEOUT) - now) * 1000;
+            timeout = (now - lastConnectionQueueElement.priorityTime) * 1000;
         }
 
         logDebug(BLUE "timeout: %d" RESET, timeout);
@@ -145,7 +145,7 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                 sendResponse(response,request, clientFd);
                 if (closeConnection == false) {
                     if (IndexQueueConnectionsFd[clientFd] == -1) {
-                        struct ConnectionTimeoutElement connectionQueueElement = {time(NULL), clientFd};
+                        struct QueueConnectionElementType connectionQueueElement = {time(NULL), clientFd};
                         enqueueConnection(connectionQueueElement);
                     } else {
                         // update priorityTime and re-order queue
