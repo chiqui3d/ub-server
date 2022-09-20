@@ -119,31 +119,14 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                     freeRequest(request);
                     continue;
                 }
+
+
                 // make response
-                struct Response *response = makeResponse(request, OPTIONS.htmlDir);
+                struct Response *response = makeResponse(request, OPTIONS.htmlDir);               
+                // send response
+                sendResponse(response, request, clientFd);
 
-                // connection
-                char *connectionHeader = getHeader(request->headers, "connection");
-                bool closeConnection = false;
-
-                // if not keep-alive in the request header, close connection
-                if (connectionHeader == NULL || (connectionHeader != NULL && *connectionHeader == 'c')) {
-                    closeConnection = true;
-                    response->headers = addHeader(response->headers, "connection", "close");
-                }
-
-                // add keep-alive header
-                if (connectionHeader != NULL && *connectionHeader == 'k') {
-                    response->headers = addHeader(response->headers, "connection", "keep-alive");
-                    size_t lenHeaderKeepAlive = snprintf(NULL, 0, "timeout=%i", KEEP_ALIVE_TIMEOUT);
-                    char headerKeepAliveValue[lenHeaderKeepAlive + 1];
-                    snprintf(headerKeepAliveValue, lenHeaderKeepAlive + 1, "timeout=%i", KEEP_ALIVE_TIMEOUT);                    
-                    response->headers = addHeader(response->headers, "keep-alive", headerKeepAliveValue);
-                }
-
-                // response
-                sendResponse(response,request, clientFd);
-                if (closeConnection == false) {
+                if (response->closeConnection == false) {
                     if (IndexQueueConnectionsFd[clientFd] == -1) {
                         struct QueueConnectionElementType connectionQueueElement = {time(NULL), clientFd};
                         enqueueConnection(connectionQueueElement);
@@ -155,6 +138,7 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                     dequeueConnectionByFd(clientFd);
                     closeClient(epollFd, clientFd);
                 }
+                // clean and log
                 // printRequest(request);
                 freeResponse(response);
                 logRequest(request);

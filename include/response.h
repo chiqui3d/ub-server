@@ -16,6 +16,7 @@ struct Response {
     size_t size;
     time_t lastModified;
     int bodyFd;
+    bool closeConnection;
 };
 
 void printResponse(struct Response *response);
