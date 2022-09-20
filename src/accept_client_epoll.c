@@ -106,20 +106,21 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                 // consoleDebug("Buffer:\n%s", buffer);
                 struct Request *request = makeRequest(buffer, clientFd);
 
-                // Hardcoded for now
+
+                // TODO: Refactoring. Hardcoded for now
                 if (strncmp(request->protocolVersion, "HTTP/1.1", 8) != 0) {
                     unsupportedProtocolResponse(clientFd, request->protocolVersion);
                     logRequest(request);
                     freeRequest(request);
                     continue;
                 }
+                // TODO: Router system
                 if (strcmp(request->path, "/hello") == 0) {
                     helloResponse(clientFd);
                     logRequest(request);
                     freeRequest(request);
                     continue;
                 }
-
 
                 // make response
                 struct Response *response = makeResponse(request, OPTIONS.htmlDir);               
@@ -138,7 +139,7 @@ void acceptClients(int socketServerFd, struct sockaddr_in *socketAddress, sockle
                     dequeueConnectionByFd(clientFd);
                     closeClient(epollFd, clientFd);
                 }
-                // clean and log
+                // free and log
                 // printRequest(request);
                 freeResponse(response);
                 logRequest(request);
