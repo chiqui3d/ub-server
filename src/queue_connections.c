@@ -1,11 +1,12 @@
 /**
  *
- * @brief Persistent connections timeout handler (HTTP/1.1 keep-alive)
+ * @brief Persistent connections queue by time (HTTP/1.1 keep-alive)
+ * 
  * Code to manage the queue of client connections through the min-heap data structure and an array
  * to store the index of the heap, in order to update the descriptor files, in case they need to update the time.
- * It may happen that they connect before they leave the queue and then the time needs to be reset.
+ * It may happen that they connect before they leave the queue and then the time needs to be updated.
  *
- * @version 0.1
+ * @version 0.2
  * @author chiqui3d
  * @date 2022-09-17
  *
