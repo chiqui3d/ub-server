@@ -1,16 +1,6 @@
 /**
  *
- * @brief Accept client connections with pthread
- * 
- * It seems that with this simple thread pool, the performance changes completely, 
- * so the ideal would be to create a real thread pool 
- * and in each thread manage the file descriptors (clientFD) with epoll.
- *
- * * Comment the `makeSocketNonBlocking` function
- * * Uncomment the `#include "accept_client_thread.h"` header file
- * * Uncomment the `acceptClientsThread` function
- * * Comment the `acceptClientsEpoll` function
- *
+ * @brief Accept client connections with pthread only
  */
 
 #include <arpa/inet.h> // for inet_ntoa()

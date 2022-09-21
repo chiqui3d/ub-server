@@ -11,6 +11,7 @@
 #include "accept_client_epoll.h"
 //#include "accept_client_fork.h"
 //#include "accept_client_thread.h"
+//#include "accept_client_thread_epoll.h"
 #include "helper.h"
 #include "server.h"
 
@@ -73,6 +74,7 @@ void serverRun(struct Options options) {
     printf(GREEN "Server listening on http://%s:%d ..." RESET "\n\n", inet_ntoa(socketAddress.sin_addr), htons(socketAddress.sin_port));
 
     //acceptClientsThread(socketServerFd);
+    //acceptClientsThreadEpoll(socketServerFd);
     acceptClientsEpoll(socketServerFd);
     //acceptClientsFork(socketServerFd);
 

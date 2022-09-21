@@ -2,7 +2,7 @@
 #define ACCEPT_CLIENT_THREAD_H
 
 
-void acceptClientsThread(int socketServerFd);
-void *handleClient(void *threadDataArg);
+void acceptClientsThreadEpoll(int socketServerFd);
+void *handleWithEpoll(void *threadDataArg);
 
 #endif // ACCEPT_CLIENT_THREAD_H

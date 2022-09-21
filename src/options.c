@@ -18,7 +18,7 @@ void printUsage(bool is_error) {
 }
 
 void printOptions(struct Options options) {
-    consoleDebug(GREEN "Server options: \n" RESET
+    consoleDebug("Server options: \n"
     "Address: %s\n"
     "Port: %d\n"
     "HTML dir: %s\n"

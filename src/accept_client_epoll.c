@@ -89,14 +89,14 @@ void acceptClientsEpoll(int socketServerFd) {
         for (i = 0; i < num_ready; i++) {
             if (events[i].data.fd == socketServerFd) {
                 // accept new client
-                consoleDebug(GREEN "Accepting new connection........." RESET);
+                consoleDebug("Accepting new connection.........");
                 acceptConnection(epollFd, socketServerFd);
 
             } else if (events[i].events & EPOLLIN) {
                 // read from client
                 int clientFd = events[i].data.fd;
 
-                consoleDebug(GREEN "Reading from client fd %i........." RESET, clientFd);
+                consoleDebug("Reading from client fd %i.........", clientFd);
 
                 char buffer[BUFFER_REQUEST_SIZE];
                 bool doneForClose = 0;
@@ -158,7 +158,7 @@ void acceptClientsEpoll(int socketServerFd) {
             }
         }
 
-        // printQueueConnections();
+        printQueueConnections();
     }
 }
 

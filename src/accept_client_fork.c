@@ -83,7 +83,7 @@ void acceptClientsFork(int socketServerFd) {
         if (clientPid == 0) { /* child process */
             close(socketServerFd);
 
-            consoleDebug(GREEN "Reading from client fd %i........." RESET, clientFd);
+            consoleDebug("Reading from client fd %i.........", clientFd);
 
             char buffer[BUFFER_REQUEST_SIZE];
             bool doneForClose = 0;
