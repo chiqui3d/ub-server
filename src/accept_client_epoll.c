@@ -47,7 +47,7 @@ void addClient(int epollFd, int clientFd) {
     }
 }
 
-void acceptClientsEpoll(int socketServerFd, struct sockaddr_in *socketAddress, socklen_t socketAddressLen) {
+void acceptClientsEpoll(int socketServerFd) {
 
     int epollFd = epoll_create1(0);
     if (epollFd < 0) {

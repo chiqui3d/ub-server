@@ -5,7 +5,7 @@
 #include <sys/socket.h> // for socket()
 
 
-void acceptClientsFork(int socketServerFd, struct sockaddr_in *socketAddress, socklen_t socketAddressLen);
+void acceptClientsFork(int socketServerFd);
 void handleChildTerm(int signum);
 
 #endif // ACCEPT_CLIENT_FORK_H

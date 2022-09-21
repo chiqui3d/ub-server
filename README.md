@@ -4,7 +4,10 @@
 
 Currently, it is being developed with **Epoll** to accept client connections via event notifications, in which the file descriptors of each client/connection are included for later use. All this can be seen in https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_epoll.c
 
-My intention is to create another `accept_client_*.c` for `fork` and another for `thread` and test the differences with [wrk](https://github.com/wg/wrk), to learn along the way.
+I have created several tests with different system, the default one is with **Epoll**, but then I created the `accept_client_fork.c` file,
+That creates a process (fork) for each request, and the results are very bad.
+
+I have also created a small thread pool `accept_client_thread.c`, if I can really call it that, where 5 threads are created and in each of them new clients can be accepted, this is considerably faster. So the ideal would be to create a **real thread pool**, where these connections are managed with **Epoll** and putting a limit of connections in each thread, although I still don't have it clear, I would have to investigate a little more.
 
 I have added a **priority queue with the heap** data structure (min-heap), to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser.
 
@@ -96,6 +99,18 @@ Running 30s test @ http://127.0.0.1:3001
 Requests/sec:    212.71
 Transfer/sec:      3.12MB
 
+```
+##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/index.html
+These tests are realized with accept_client_thread.c. These tests are faster, this is a small thread pool, if I can call it that.
+```
+Running 30s test @ http://127.0.0.1:3001
+  2 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   133.12ms   12.59ms 283.03ms   82.85%
+    Req/Sec   376.27     37.33   474.00     72.62%
+  22471 requests in 30.09s, 330.09MB read
+Requests/sec:    746.87
+Transfer/sec:     10.97MB
 ```
 
 # TODO

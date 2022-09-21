@@ -27,14 +27,11 @@
 #include "accept_client_fork.h"
 #include "helper.h"
 #include "options.h"
-#include "queue_connections.h"
 #include "request.h"
 #include "response.h"
 #include "server.h"
 
 struct Options OPTIONS;
-struct QueueConnectionsType QueueConnections;
-int IndexQueueConnectionsFd[MAX_CONNECTIONS];
 
 void handleChildTerm(int signum) {
     // avoid zombie processes
@@ -44,9 +41,8 @@ void handleChildTerm(int signum) {
     errno = 0; // for avoid return: no child processes
 }
 
-void acceptClientsFork(int socketServerFd, struct sockaddr_in *socketAddress, socklen_t socketAddressLen) {
+void acceptClientsFork(int socketServerFd) {
 
-    // createQueueConnections();
     struct sigaction sa; // signal handler
     sigemptyset(&sa.sa_mask);
     sa.sa_handler = &handleChildTerm;
@@ -61,10 +57,19 @@ void acceptClientsFork(int socketServerFd, struct sockaddr_in *socketAddress, so
         struct sockaddr_in client_address = {0};
         socklen_t client_address_len = sizeof(client_address);
 
+        /**
+         * @brief https://man7.org/linux/man-pages/man7/socket.7.html
+         * An alternative to poll(2) and select(2) is to let the kernel
+         * inform the application about events via a SIGIO signal.  For that
+         * the O_ASYNC flag must be set on a socket file descriptor via
+         * fcntl(2) and a valid signal handler for SIGIO must be installed
+         * via sigaction(2).  See the Signals discussion below.
+         * 
+         */
         clientFd = accept(socketServerFd, (struct sockaddr *)&client_address, &client_address_len);
 
         if (clientFd < 0) {
-            if (errno == EINTR) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
                 continue;
             }
             die("accept failed");
@@ -75,11 +80,6 @@ void acceptClientsFork(int socketServerFd, struct sockaddr_in *socketAddress, so
         if (clientPid < 0) { // error
             die("fork failed");
         }
-        if (clientPid > 0) { // parent
-            close(clientFd);
-            continue;
-        }
-
         if (clientPid == 0) { /* child process */
             close(socketServerFd);
 
@@ -99,7 +99,7 @@ void acceptClientsFork(int socketServerFd, struct sockaddr_in *socketAddress, so
             if (doneForClose == 1) { // request close connection
                 logDebug(BLUE "Done for close" RESET);
                 close(clientFd);
-                _exit(EXIT_SUCCESS);
+                exit(EXIT_SUCCESS);
             }
 
             struct Request *request = makeRequest(buffer, clientFd);
@@ -131,5 +131,6 @@ void acceptClientsFork(int socketServerFd, struct sockaddr_in *socketAddress, so
             // kill(getpid(), SIGKILL);
             exit(EXIT_SUCCESS);
         }
+        close(clientFd);
     }
 }
