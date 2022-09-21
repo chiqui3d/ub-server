@@ -19,7 +19,6 @@ But as I said before, although it works, it still requires a lot of validation, 
 
 Some headers are added manually as can be seen in the code https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L115, such as the cache header, which disabled the browser cache to avoid unexpected results during testing.
 
-I would also like to reduce the number of times I use dynamic memory with `malloc`.
 
 Someone posted on Reddit some good recommendations to follow in C [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
 
@@ -101,7 +100,7 @@ Transfer/sec:      3.12MB
 
 ```
 ##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/index.html
-These tests are realized with accept_client_thread.c. These tests are faster, this is a small thread pool, if I can call it that.
+These tests are realized with accept_client_thread.c.
 ```
 Running 30s test @ http://127.0.0.1:3001
   2 threads and 100 connections
