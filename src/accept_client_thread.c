@@ -47,7 +47,7 @@ struct threadData threads[MAX_THREADS];
 
 void acceptClientsThread(int socketServerFd) {
 
-    pthread_mutex_init(&threadDataMutex, 0);
+    pthread_mutex_init(&threadDataMutex, 0); // remove, not used
 
     int i;
     for (i = 0; i < MAX_THREADS; i++) {
@@ -63,7 +63,7 @@ void acceptClientsThread(int socketServerFd) {
         pthread_cancel(threads[i].thread);
     }
 
-    pthread_mutex_destroy(&threadDataMutex);
+    pthread_mutex_destroy(&threadDataMutex); // remove, not used
 }
 
 void *handleClient(void *threadDataArg) {
@@ -80,7 +80,6 @@ void *handleClient(void *threadDataArg) {
 
         if (clientFd < 0) {
             if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
-                // unsleep(1000);
                 continue;
             }
             die("accept failed");
