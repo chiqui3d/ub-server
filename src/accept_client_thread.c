@@ -38,7 +38,7 @@
 
 struct Options OPTIONS;
 
-pthread_mutex_t sessions_mutex;
+pthread_mutex_t threadDataMutex;
 struct threadData {
     pthread_t thread;
     int socketFd;
@@ -47,7 +47,7 @@ struct threadData threads[MAX_THREADS];
 
 void acceptClientsThread(int socketServerFd) {
 
-    pthread_mutex_init(&sessions_mutex, 0);
+    pthread_mutex_init(&threadDataMutex, 0);
 
     int i;
     for (i = 0; i < MAX_THREADS; i++) {
@@ -63,7 +63,7 @@ void acceptClientsThread(int socketServerFd) {
         pthread_cancel(threads[i].thread);
     }
 
-    pthread_mutex_destroy(&sessions_mutex);
+    pthread_mutex_destroy(&threadDataMutex);
 }
 
 void *handleClient(void *threadDataArg) {
