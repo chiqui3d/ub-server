@@ -115,6 +115,8 @@ Transfer/sec:     10.97MB
 # TODO
 
 * [x] Add support for HTTP keep-alive connections
+* [x] Add a fork and thread version
+* [x] Creating a real thread pool with pthread and epoll
 * [ ] Add support for Accept-Ranges 
      * https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
 * [ ] Add fork and thread alternative example
