@@ -170,7 +170,7 @@ void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int co
         lenFullMessage += snprintf(NULL, 0, " | %s", strerror(errno));
     }
 
-    lenFullMessage += 2; // add 1 the new line and 1 for null terminator
+    lenFullMessage += 1; // add 1 the new line and 1 for null terminator
 
     char fullMessage[lenFullMessage];
     int offset = snprintf(fullMessage, lenFullMessage, "%s | %s | %s:%d | %s", datetime, levelName, codeFileName, codeLine, messageWithArguments);
@@ -178,8 +178,7 @@ void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int co
     if (errno != 0 && showErrno) {
         snprintf(fullMessage + offset, lenFullMessage - offset, " | %s", strerror(errno));
     }
-    fullMessage[lenFullMessage - 2] = '\n';
-    fullMessage[lenFullMessage - 1] = '\0';
+    fullMessage[lenFullMessage-1] = '\n';
 
     // Truncate: truncate message if it is too long
     /*  if (lenFullMessage >= LOGGER_MESSAGE_MAX) {

@@ -8,10 +8,10 @@
 #include "../lib/color/color.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
-#include "accept_client_epoll.h"
+//#include "accept_client_epoll.h"
 //#include "accept_client_fork.h"
 //#include "accept_client_thread.h"
-//#include "accept_client_thread_epoll.h"
+#include "accept_client_thread_epoll.h"
 #include "helper.h"
 #include "server.h"
 
@@ -29,9 +29,9 @@ void serverRun(struct Options options) {
         die("setsockopt SO_REUSEADDR");
     }
 
-    if (OPTIONS.TCPKeepAlive) {
+   /*  if (OPTIONS.TCPKeepAlive) {
         makeTCPKeepAlive(socketServerFd);
-    }
+    } */
 
     // https://baus.net/on-tcp_cork/
     int enableTCP_NO_DELAY = 1;
@@ -73,9 +73,9 @@ void serverRun(struct Options options) {
 
     printf(GREEN "Server listening on http://%s:%d ..." RESET "\n\n", inet_ntoa(socketAddress.sin_addr), htons(socketAddress.sin_port));
 
+    acceptClientsThreadEpoll(socketServerFd);
     //acceptClientsThread(socketServerFd);
-    //acceptClientsThreadEpoll(socketServerFd);
-    acceptClientsEpoll(socketServerFd);
+    //acceptClientsEpoll(socketServerFd);
     //acceptClientsFork(socketServerFd);
 
     close(socketServerFd);

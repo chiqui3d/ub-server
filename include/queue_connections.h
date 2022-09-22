@@ -1,11 +1,11 @@
 #ifndef QUEUE_CONNECTIONS_H
 #define QUEUE_CONNECTIONS_H
 
-#include <time.h>
 #include "server.h"
+#include <time.h>
 
 #ifndef MAX_CONNECTIONS
-#define MAX_CONNECTIONS 1000
+#define MAX_CONNECTIONS 1024
 #endif
 
 struct QueueConnectionElementType {
@@ -16,27 +16,20 @@ struct QueueConnectionsType {
     struct QueueConnectionElementType connections[MAX_CONNECTIONS];
     int currentSize;
     int capacity;
+    int indexQueue[MAX_CONNECTIONS];
 };
 
-extern struct QueueConnectionsType QueueConnections;
-extern int IndexQueueConnectionsFd[MAX_CONNECTIONS];
-
-
-
-void createQueueConnections();
-void enqueueConnection(struct QueueConnectionElementType connection);
-void updateQueueConnection(int fd, time_t now);
-void dequeueConnection();
-void dequeueConnectionByFd(int fd);
-struct QueueConnectionElementType peekQueueConnections();
-void heapify(int index);
+struct QueueConnectionsType createQueueConnections();
+void enqueueConnection(struct QueueConnectionsType *queueConnections, struct QueueConnectionElementType connection);
+void updateQueueConnection(struct QueueConnectionsType *queueConnections, int fd, time_t now);
+void dequeueConnection(struct QueueConnectionsType *queueConnections);
+void dequeueConnectionByFd(struct QueueConnectionsType *queueConnections, int fd);
+struct QueueConnectionElementType peekQueueConnections(struct QueueConnectionsType *queueConnections);
+void heapify(struct QueueConnectionsType *queueConnections, int index);
 void swapConnectionElementHeap(struct QueueConnectionElementType *a, struct QueueConnectionElementType *b);
 int leftChildHeap(int element);
 int rightChildHeap(int element);
 int parentHeap(int element);
-void printQueueConnections();
-
-
-
+void printQueueConnections(struct QueueConnectionsType *queueConnections);
 
 #endif // END QUEUE_CONNECTIONS_H

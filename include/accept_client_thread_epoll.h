@@ -3,6 +3,6 @@
 
 
 void acceptClientsThreadEpoll(int socketServerFd);
-void *handleWithEpoll(void *threadDataArg);
+void *workThreadEpoll(void *threadDataArg);
 
 #endif // ACCEPT_CLIENT_THREAD_H

@@ -1,7 +1,7 @@
 /**
  *
  * @brief Persistent connections queue by time (HTTP/1.1 keep-alive)
- * 
+ *
  * Code to manage the queue of client connections through the min-heap data structure and an array
  * to store the index of the heap, in order to update the descriptor files, in case they need to update the time.
  * It may happen that they connect before they leave the queue and then the time needs to be updated.
@@ -20,135 +20,134 @@
 #include <string.h>
 
 #include "../lib/logger/logger.h"
-#include "queue_connections.h"
 #include "helper.h"
+#include "queue_connections.h"
 
-struct QueueConnectionsType QueueConnections;
-int IndexQueueConnectionsFd[MAX_CONNECTIONS];
-
-void createQueueConnections() {
-    memset(QueueConnections.connections, 0, MAX_CONNECTIONS);
-    QueueConnections.currentSize = 0;
-    QueueConnections.capacity = (int)MAX_CONNECTIONS;
-    memset(IndexQueueConnectionsFd, -1, MAX_CONNECTIONS);
+struct QueueConnectionsType createQueueConnections() {
+    struct QueueConnectionsType queueConnections;
+    memset(queueConnections.connections, 0, MAX_CONNECTIONS);
+    queueConnections.currentSize = 0;
+    queueConnections.capacity = (int)MAX_CONNECTIONS;
+    memset(queueConnections.indexQueue, -1, MAX_CONNECTIONS);
+    return queueConnections;
 }
 
-void enqueueConnection(struct QueueConnectionElementType connection) {
-    if (QueueConnections.currentSize == QueueConnections.capacity) {
+void enqueueConnection(struct QueueConnectionsType *queueConnections, struct QueueConnectionElementType connection) {
+    if (queueConnections->currentSize == queueConnections->capacity) {
         logWarning("Queue connection is full (max %d). The fd %d cannot be inserted\n", MAX_CONNECTIONS, connection.fd);
         return;
     }
 
     // insert in the last position
-    QueueConnections.connections[QueueConnections.currentSize] = connection;
-    QueueConnections.currentSize++;
-    int indexQueue = QueueConnections.currentSize - 1; // last element
+    queueConnections->connections[queueConnections->currentSize] = connection;
+    queueConnections->currentSize++;
+    int indexQueue = queueConnections->currentSize - 1; // last element
     // loop until the element is minor than its parent or it is the root
     // shiftUp
-    while (indexQueue != 0 && difftime(connection.priorityTime, QueueConnections.connections[parentHeap(indexQueue)].priorityTime) < 0) {
-        swapConnectionElementHeap(&QueueConnections.connections[indexQueue], &QueueConnections.connections[parentHeap(indexQueue)]);
+    while (indexQueue != 0 && difftime(connection.priorityTime, queueConnections->connections[parentHeap(indexQueue)].priorityTime) < 0) {
+        swapConnectionElementHeap(&queueConnections->connections[indexQueue], &queueConnections->connections[parentHeap(indexQueue)]);
         indexQueue = parentHeap(indexQueue);
     }
     logDebug(GREEN "Enqueue connection fd %d in the index %d" RESET, connection.fd, indexQueue);
     // assign the index of the heap to the array
-    IndexQueueConnectionsFd[connection.fd] = indexQueue;
+    queueConnections->indexQueue[connection.fd] = indexQueue;
 }
 
-void updateQueueConnection(int fd, time_t now) {
+void updateQueueConnection(struct QueueConnectionsType *queueConnections, int fd, time_t now) {
 
     logDebug(RED "Update queue connection fd %d" RESET, fd);
 
-    int index = IndexQueueConnectionsFd[fd];
-    time_t oldPriorityTime = QueueConnections.connections[index].priorityTime;
-    QueueConnections.connections[index].priorityTime = now;
+    int index = queueConnections->indexQueue[fd];
+    time_t oldPriorityTime = queueConnections->connections[index].priorityTime;
+    queueConnections->connections[index].priorityTime = now;
 
     if (difftime(now, oldPriorityTime) < 0) {
         logDebug(RED "Shift up" RESET);
         // shiftUp
-        while (index != 0 && difftime(now, QueueConnections.connections[parentHeap(index)].priorityTime) < 0) {
-            swapConnectionElementHeap(&QueueConnections.connections[index], &QueueConnections.connections[parentHeap(index)]);
+        while (index != 0 && difftime(now, queueConnections->connections[parentHeap(index)].priorityTime) < 0) {
+            swapConnectionElementHeap(&queueConnections->connections[index], &queueConnections->connections[parentHeap(index)]);
             index = parentHeap(index);
         }
-        IndexQueueConnectionsFd[fd] = index;
+        queueConnections->indexQueue[fd] = index;
     } else {
         logDebug(RED "Shift down" RESET);
         // shiftDown
-        heapify(index);
+        heapify(queueConnections, index);
     }
 }
 
-void dequeueConnection() {
-    if (QueueConnections.currentSize == 0) {
+void dequeueConnection(struct QueueConnectionsType *queueConnections) {
+    if (queueConnections->currentSize == 0) {
         logDebug("Queue is empty");
         return;
     }
     logDebug("Dequeue connection");
 
-    int fd0 = QueueConnections.connections[0].fd;
-    int fdLast = QueueConnections.connections[QueueConnections.currentSize - 1].fd;
+    int fd0 = queueConnections->connections[0].fd;
+    int fdLast = queueConnections->connections[queueConnections->currentSize - 1].fd;
     // swap the last element with the first
-    QueueConnections.connections[0] = QueueConnections.connections[QueueConnections.currentSize - 1];
-    QueueConnections.connections[QueueConnections.currentSize - 1] = (struct QueueConnectionElementType){0, 0};
+    queueConnections->connections[0] = queueConnections->connections[queueConnections->currentSize - 1];
+    queueConnections->connections[queueConnections->currentSize - 1] = (struct QueueConnectionElementType){0, 0};
     // remove the last element
-    QueueConnections.currentSize--;
+    queueConnections->currentSize--;
     // remove the index of the heap from the array
-    IndexQueueConnectionsFd[fd0] = -1;
-    IndexQueueConnectionsFd[fdLast] = 0;
+    queueConnections->indexQueue[fd0] = -1;
+    queueConnections->indexQueue[fdLast] = 0;
     // shiftDown
-    heapify(0);
+    heapify(queueConnections, 0);
 }
 
-void dequeueConnectionByFd(int fd) {
-    if (QueueConnections.currentSize == 0) {
+void dequeueConnectionByFd(struct QueueConnectionsType *queueConnections, int fd) {
+    if (queueConnections->currentSize == 0) {
         logDebug("Queue is empty");
         return;
     }
     logDebug("Dequeue connection fd %d", fd);
-    int index = IndexQueueConnectionsFd[fd];
+    int index = queueConnections->indexQueue[fd];
     if (index == -1) {
         logDebug(RED "The fd %d is not in the queue" RESET, fd);
         return;
     }
-    int fdLast = QueueConnections.connections[QueueConnections.currentSize - 1].fd;
+    int fdLast = queueConnections->connections[queueConnections->currentSize - 1].fd;
     // swap the last element with the first
-    swapConnectionElementHeap(&QueueConnections.connections[index], &QueueConnections.connections[QueueConnections.currentSize - 1]);
-    QueueConnections.connections[QueueConnections.currentSize - 1] = (struct QueueConnectionElementType){0, 0};
+    swapConnectionElementHeap(&queueConnections->connections[index], &queueConnections->connections[queueConnections->currentSize - 1]);
+    queueConnections->connections[queueConnections->currentSize - 1] = (struct QueueConnectionElementType){0, 0};
     // remove the last element
-    QueueConnections.currentSize--;
+    queueConnections->currentSize--;
     // remove the index of the heap from the array
-    IndexQueueConnectionsFd[fd] = -1;
-    IndexQueueConnectionsFd[fdLast] = index;
+    queueConnections->indexQueue[fd] = -1;
+    queueConnections->indexQueue[fdLast] = index;
     // shiftDown
-    heapify(index);
+    heapify(queueConnections, index);
 }
 
 // Get the value of the front of the queue without removing it
-struct QueueConnectionElementType peekQueueConnections() {
-    if (QueueConnections.currentSize == 0) {
+struct QueueConnectionElementType peekQueueConnections(struct QueueConnectionsType *queueConnections) {
+    if (queueConnections->currentSize == 0) {
         logDebug("Queue is empty");
         return (struct QueueConnectionElementType){0, 0};
     }
 
-    return QueueConnections.connections[0];
+    return queueConnections->connections[0];
 }
 
 // shiftDown
-void heapify(int index) {
+void heapify(struct QueueConnectionsType *queueConnections, int index) {
     int left = leftChildHeap(index);
     int right = rightChildHeap(index);
     int smallest = index;
 
-    if (left < QueueConnections.currentSize && difftime(QueueConnections.connections[left].priorityTime, QueueConnections.connections[smallest].priorityTime) < 0) {
+    if (left < queueConnections->currentSize && difftime(queueConnections->connections[left].priorityTime, queueConnections->connections[smallest].priorityTime) < 0) {
         smallest = left;
     }
-    if (right < QueueConnections.currentSize && difftime(QueueConnections.connections[right].priorityTime, QueueConnections.connections[smallest].priorityTime) < 0) {
+    if (right < queueConnections->currentSize && difftime(queueConnections->connections[right].priorityTime, queueConnections->connections[smallest].priorityTime) < 0) {
         smallest = right;
     }
     if (smallest != index) { // if the smallest is not the current index, then swap
-        swapConnectionElementHeap(&QueueConnections.connections[index], &QueueConnections.connections[smallest]);
-        IndexQueueConnectionsFd[QueueConnections.connections[index].fd] = index;
-        IndexQueueConnectionsFd[QueueConnections.connections[smallest].fd] = smallest;
-        heapify(smallest);
+        swapConnectionElementHeap(&queueConnections->connections[index], &queueConnections->connections[smallest]);
+        queueConnections->indexQueue[queueConnections->connections[index].fd] = index;
+        queueConnections->indexQueue[queueConnections->connections[smallest].fd] = smallest;
+        heapify(queueConnections, smallest);
     }
 }
 
@@ -169,27 +168,26 @@ void swapConnectionElementHeap(struct QueueConnectionElementType *a, struct Queu
     *b = temp;
 }
 
-void printQueueConnections() {
+void printQueueConnections(struct QueueConnectionsType *queueConnections) {
     errno = 0;
-    logDebug(RED "Size: %d, Capacity: %d" RESET, QueueConnections.currentSize, QueueConnections.capacity);
+    logDebug(RED "Size: %d, Capacity: %d" RESET, queueConnections->currentSize, queueConnections->capacity);
     int i;
     char date[20];
-    for (i = 0; i < QueueConnections.currentSize; i++) {
-        int index = IndexQueueConnectionsFd[QueueConnections.connections[i].fd];
-        timeToDatetimeString(QueueConnections.connections[i].priorityTime, date);
-        // We show both the queue data and the array that stores the queue indexes, 
+    for (i = 0; i < queueConnections->currentSize; i++) {
+        int index = queueConnections->indexQueue[queueConnections->connections[i].fd];
+        timeToDatetimeString(queueConnections->connections[i].priorityTime, date);
+        // We show both the queue data and the array that stores the queue indexes,
         // to see if they match between updates and deletes.
         logDebug("index: %d, fd: %d, time: %ld, date: %s | index: %d, fd: %d, time: %ld",
-               i,
-               QueueConnections.connections[i].fd,
-               QueueConnections.connections[i].priorityTime,
-               date,
-               index,
-               QueueConnections.connections[index].fd,
-               QueueConnections.connections[index].priorityTime);
+                 i,
+                 queueConnections->connections[i].fd,
+                 queueConnections->connections[i].priorityTime,
+                 date,
+                 index,
+                 queueConnections->connections[index].fd,
+                 queueConnections->connections[index].priorityTime);
     }
-    if (QueueConnections.currentSize == 0) {
+    if (queueConnections->currentSize == 0) {
         logDebug(RED "Empty queue" RESET);
     }
-    
 }

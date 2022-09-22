@@ -115,16 +115,16 @@ Transfer/sec:     10.97MB
 # TODO
 
 * [x] Add support for HTTP keep-alive connections
-* [x] Add a fork and thread version
-* [x] Creating a real thread pool with pthread and epoll
+* [x] Add prethread(thread pool) and prefork versions
+* [ ] Decode the URL
+* [ ] Check safe url directory. Example ../public/../../etc/passwd
 * [ ] Add support for Accept-Ranges 
      * https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
-* [ ] Add fork and thread alternative example
 * [ ] Reduce the number of times dynamic memory is used with `malloc`
 * [ ] Add support for compression
      * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
      * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
-* [ ] Add more optimizations
+* [ ] Look for more optimizations
 * [ ] Add support for HTTPS
 * [ ] Add tests
 * [ ] Daemonize the server
