@@ -66,6 +66,9 @@ Usage: bin/ubserver [ options ]
   -h, --help                Print this usage information
 
 ```
+```
+bin/ubserver -p 3001 -a 127.0.0.1 --logger-path /home/chiqui3d/www/CS50/c/sockets/server-html/
+```
 ##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/hello
 Great results with a single Hello World, compared to the next test where i have to create the `struct Response`, load mime types, generate the `headers` dynamically (although some headers are hard coded) and `send` a large HTML file.
 

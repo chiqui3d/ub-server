@@ -9,9 +9,9 @@
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "accept_client_epoll.h"
-#include "queue_connections.h"
 #include "helper.h"
 #include "options.h"
+#include "queue_connections.h"
 #include "request.h"
 #include "response.h"
 #include "server.h"
@@ -19,7 +19,6 @@
 struct Options OPTIONS;
 
 pthread_mutex_t threadDataMutex = PTHREAD_MUTEX_INITIALIZER;
-
 
 void acceptClientsEpoll(int socketServerFd) {
 
@@ -45,7 +44,6 @@ void handleEpoll(int socketServerFd, int epollFd) {
         if (lastConnectionQueueElement.fd != 0) {
             timeout = (now - lastConnectionQueueElement.priorityTime) * 1000;
         }
-
         logDebug(BLUE "timeout: %d" RESET, timeout);
 
         // check for CLOSE client connection by time_t
@@ -68,9 +66,9 @@ void handleEpoll(int socketServerFd, int epollFd) {
             if (events[i].data.fd == socketServerFd) {
                 // accept new client
                 consoleDebug("Accepting new connection.........");
-                //pthread_mutex_lock(&threadDataMutex);
+                // pthread_mutex_lock(&threadDataMutex);
                 acceptConnection(epollFd, socketServerFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
-                //pthread_mutex_unlock(&threadDataMutex);
+                // pthread_mutex_unlock(&threadDataMutex);
 
             } else if (events[i].events & EPOLLIN) {
                 // read from client
@@ -84,13 +82,12 @@ void handleEpoll(int socketServerFd, int epollFd) {
 
                 if (doneForClose == 1) { // request close connection
                     logDebug(BLUE "Done for close" RESET);
-                    dequeueConnectionByFd(&queueConnections,clientFd);
+                    dequeueConnectionByFd(&queueConnections, clientFd);
                     closeClient(epollFd, clientFd);
                     continue;
                 }
 
                 struct Request *request = makeRequest(buffer, clientFd);
-
 
                 // TODO: Refactoring. Hardcoded for now
                 if (strncmp(request->protocolVersion, "HTTP/1.1", 8) != 0) {
@@ -108,12 +105,12 @@ void handleEpoll(int socketServerFd, int epollFd) {
                 }
 
                 // make response
-                struct Response *response = makeResponse(request, OPTIONS.htmlDir);               
+                struct Response *response = makeResponse(request, OPTIONS.htmlDir);
                 // send response
                 sendResponse(response, request, clientFd);
 
                 if (response->closeConnection == false) {
-                    //rearm the file descriptor with a new event mask
+                    // rearm the file descriptor with a new event mask
                     modClient(epollFd, clientFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
                     // add to queue for keep alive
                     if (queueConnections.indexQueue[clientFd] == -1) {
@@ -158,16 +155,16 @@ void acceptConnection(int epollFd, int socketServerFd, int events) {
             }
             break;
         }
-/*         if (clientFd >= MAX_CONNECTIONS) {
-            logWarning("Maximum connections (%d) exceeded by fd %d", MAX_CONNECTIONS, clientFd);
-            tooManyRequestResponse(clientFd);
-            close(clientFd);
-            return;
-        } */
+        /*         if (clientFd >= MAX_CONNECTIONS) {
+                    logWarning("Maximum connections (%d) exceeded by fd %d", MAX_CONNECTIONS, clientFd);
+                    tooManyRequestResponse(clientFd);
+                    close(clientFd);
+                    return;
+                } */
 
         logDebug("Connect with the client %d %s:%d", clientFd, inet_ntoa(client_address.sin_addr), htons(client_address.sin_port));
         makeSocketNonBlocking(clientFd);
-        if (events == 0){
+        if (events == 0) {
             events = EPOLLIN | EPOLLET;
         }
         addClient(epollFd, clientFd, events);
@@ -192,7 +189,7 @@ void closeClient(int epollFd, int clientFd) {
 }
 
 void addClient(int epollFd, int clientFd, int events) {
-    if(events == 0) {
+    if (events == 0) {
         events = EPOLLIN | EPOLLET;
     }
     // (EPOLLIN | EPOLLET Edge Triggered (ET) for non-blocking sockets
@@ -205,7 +202,7 @@ void addClient(int epollFd, int clientFd, int events) {
 }
 
 void modClient(int epollFd, int clientFd, int events) {
-     if(events == 0) {
+    if (events == 0) {
         events = EPOLLIN | EPOLLET;
     }
     struct epoll_event event = buildEvent(events, clientFd);
