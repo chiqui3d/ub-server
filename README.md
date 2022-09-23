@@ -115,7 +115,7 @@ Transfer/sec:     10.97MB
 * [ ] Add support for compression
      * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
      * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
-* [ ] Look for more optimizations
+* [ ] Look for more optimizations [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
 * [ ] Add support for HTTPS
 * [ ] Add tests
 * [ ] Daemonize the server
@@ -129,7 +129,6 @@ Transfer/sec:     10.97MB
 
 I would like to read the following books, some of which I have used for reference, but have not completed.
 
-* [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
 * The C Programming Language by Brian W. Kernighan and Dennis M. Ritchie 
 * The Linux Programming Interface
 * Learn C the Hard Way
