@@ -2,7 +2,7 @@
 
 **Undefined Behavior Server** is a HTTP 1.1 server made with **Epoll** and **Pthread** for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`)
 
-At first it started as a single test with Epoll, but I have continued practising and finally got a small server serving static content with Epoll and Pthread https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_thread_epoll.c
+At first it started as a single test with Epoll, but I have continued practising and finally got a small server serving static content with Epoll and Pthread https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_thread_epoll.c, The epoll file descriptor is shared between the created threads, but each has its own event array.
 
 I have added a **priority queue with the heap** data structure (min-heap), to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser.
 
@@ -13,9 +13,6 @@ Currently, I have downloaded a free HTML template and put it directly into the `
 But as I said before, although it works, it still requires a lot of validation, and it is possible that it has some errors when dealing with some headers or options.
 
 Some headers are added manually as can be seen in the code https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L198, such as the cache header, which disabled the browser cache to avoid unexpected results during testing.
-
-
-Someone posted on Reddit some good recommendations to follow in C [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
 
 ## Directory Structure
 
@@ -132,6 +129,7 @@ Transfer/sec:     10.97MB
 
 I would like to read the following books, some of which I have used for reference, but have not completed.
 
+* [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
 * The C Programming Language by Brian W. Kernighan and Dennis M. Ritchie 
 * The Linux Programming Interface
 * Learn C the Hard Way
