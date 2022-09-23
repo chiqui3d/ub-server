@@ -6,7 +6,7 @@ At first it started as a single test with Epoll, but I have continued practising
 
 I have added a **priority queue with the heap** data structure (min-heap), to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser.
 
-I have also created a small library for logging and you can print the logs to a file if you wish. If you comment out the line of code in the Makefile containing `CFLAGS += -DNDEBUG`, you will be able to see the logs directly in the console instead of in a file.
+I have also created a small library for logging and you can print the logs to a file if you wish. If you comment out the line of code in the Makefile containing `CFLAGS += -DNDEBUG`, you will be able to see the logs directly in the console instead of in a file. The logger writes to the file with `aio_write` function, so it is asynchronous and it does not block the main thread.
 
 Currently, I have downloaded a free HTML template and put it directly into the `public` directory to test it out, and it seems to work quite well.
 
