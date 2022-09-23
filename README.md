@@ -115,7 +115,7 @@ Transfer/sec:     10.97MB
 * [ ] Add support for compression
      * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
      * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
-* [ ] Look for more optimizations [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
+* [ ] Look out for more optimizations [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
 * [ ] Add support for HTTPS
 * [ ] Add tests
 * [ ] Daemonize the server
