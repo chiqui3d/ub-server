@@ -57,15 +57,6 @@ void acceptClientsFork(int socketServerFd) {
         struct sockaddr_in client_address = {0};
         socklen_t client_address_len = sizeof(client_address);
 
-        /**
-         * @brief https://man7.org/linux/man-pages/man7/socket.7.html
-         * An alternative to poll(2) and select(2) is to let the kernel
-         * inform the application about events via a SIGIO signal.  For that
-         * the O_ASYNC flag must be set on a socket file descriptor via
-         * fcntl(2) and a valid signal handler for SIGIO must be installed
-         * via sigaction(2).  See the Signals discussion below.
-         * 
-         */
         clientFd = accept(socketServerFd, (struct sockaddr *)&client_address, &client_address_len);
 
         if (clientFd < 0) {

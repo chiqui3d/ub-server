@@ -150,7 +150,7 @@ void sendResponse(struct Response *response, struct Request *request, int client
     char statusCodeReason[33];
     strCopySafe(statusCodeReason, (char*)HTTP_STATUS_REASON(response->statusCode));
 
-    magic_t magic = magic_open(MAGIC_MIME_TYPE | MAGIC_PRESERVE_ATIME | MAGIC_SYMLINK | MAGIC_ERROR);
+    magic_t magic = magic_open(MAGIC_MIME_TYPE | MAGIC_PRESERVE_ATIME | MAGIC_SYMLINK);
     // get current directory path
     char cwd[1024];
     if (getcwd(cwd, sizeof(cwd)) == NULL) {
