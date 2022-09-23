@@ -126,7 +126,7 @@ Transfer/sec:     10.97MB
 * [ ] Add support for HTTPS
 * [ ] Add tests
 * [ ] Daemonize the server
-* [ ] Decouple logging from main program (I have now set it with aio_write)
+* [ ] Decouple logging from main program
 
 # References
 
