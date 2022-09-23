@@ -1,7 +1,9 @@
+#include <aio.h>
 #include <errno.h> // for errno
 #include <fcntl.h> // for open() nonblocking socket
 #include <fcntl.h>
 #include <stdio.h> // for sprintf()
+#include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -103,7 +105,7 @@ int getLoggerFileDescriptor() {
     getLoggerFileName(newLoggerFileName);
 
     // check if the file name (%Y-%m-%d.log) is the same as the current one
-    if (LOGGER.fileFd == STDERR_FILENO || strncmp(newLoggerFileName, LOGGER.fileName, LOGGER_FILE_NAME_MAX) != 0) {
+    if (strncmp(newLoggerFileName, LOGGER.fileName, LOGGER_FILE_NAME_MAX) != 0) {
         LOGGER.initialized = false;
     }
 
@@ -118,7 +120,7 @@ int getLoggerFileDescriptor() {
 
             close(LOGGER.fileFd);
             strncpy(LOGGER.fileName, newLoggerFileName, LOGGER_FILE_NAME_MAX);
-            LOGGER.fileName[LOGGER_FILE_NAME_MAX-1] = '\0';
+            LOGGER.fileName[LOGGER_FILE_NAME_MAX - 1] = '\0';
             // TODO: check permissions if the file is already exists and if the permissions are not correct, remove and create a new file
 
             LOGGER.fileFd = open(loggerFullPath, O_APPEND | O_CREAT | O_WRONLY | O_NOFOLLOW, DEFAULT_LOGGER_PERMISSION_MODE);
@@ -170,7 +172,7 @@ void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int co
         lenFullMessage += snprintf(NULL, 0, " | %s", strerror(errno));
     }
 
-    lenFullMessage += 1; // add 1 the new line and 1 for null terminator
+    lenFullMessage += 1; // add 1 for the new line
 
     char fullMessage[lenFullMessage];
     int offset = snprintf(fullMessage, lenFullMessage, "%s | %s | %s:%d | %s", datetime, levelName, codeFileName, codeLine, messageWithArguments);
@@ -178,21 +180,33 @@ void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int co
     if (errno != 0 && showErrno) {
         snprintf(fullMessage + offset, lenFullMessage - offset, " | %s", strerror(errno));
     }
-    fullMessage[lenFullMessage-1] = '\n';
+    fullMessage[lenFullMessage - 1] = '\n';
 
-    // Truncate: truncate message if it is too long
-    /*  if (lenFullMessage >= LOGGER_MESSAGE_MAX) {
-         char endMessage[8] = " [...]\n";
-         size_t lenEndMessage = strlen(endMessage);
-         strncpy(fullMessage + (LOGGER_MESSAGE_MAX - lenEndMessage), endMessage, lenEndMessage + 1);
-         lenFullMessage = LOGGER_MESSAGE_MAX;
-         char *truncateMessage = "The message has been truncated:\n";
-         writeAll(fileFd, truncateMessage, strlen(truncateMessage));
-     } */
+    // TODO: truncate message if it is too long (lenFullMessage > LOGGER_MAX_MESSAGE_LENGTH)
 
-    if (writeAll(fileFd, fullMessage, lenFullMessage) == -1) {
+    struct aiocb *aiocbp;
+    aiocbp = malloc(sizeof(struct aiocb));
+    memset(aiocbp, 0, sizeof(struct aiocb));
+    aiocbp->aio_fildes = fileFd;
+    aiocbp->aio_buf = fullMessage;
+    aiocbp->aio_nbytes = lenFullMessage;
+    aiocbp->aio_sigevent.sigev_notify = SIGEV_NONE;
+
+    if (aio_write(aiocbp) == -1) {
         die("Error writing to logger file");
     }
+
+    while (aio_error(aiocbp) == EINPROGRESS) {
+        // wait until the write is done
+    }
+
+    if (aio_return(aiocbp) == -1) {
+        die("Error writing to logger file");
+    }
+
+    /* if (writeAll(fileFd, fullMessage, lenFullMessage) == -1) {
+        die("Error writing to logger file");
+    } */
 }
 
 /**

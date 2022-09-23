@@ -224,7 +224,6 @@ size_t sendAll(int fd, const void *buffer, size_t count) {
             }
             return -1;
         } else {
-            // Keep count of how much more we need to write.
             left_to_write -= written;
         }
     }

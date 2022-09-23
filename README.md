@@ -1,13 +1,8 @@
 # Undefined Behavior Server 👀
 
-**Undefined Behavior Server** is a HTTP 1.1 server made with **Epoll** and for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`)
+**Undefined Behavior Server** is a HTTP 1.1 server made with **Epoll** and **Pthread** for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`)
 
-Currently, it is being developed with **Epoll** to accept client connections via event notifications, in which the file descriptors of each client/connection are included for later use. All this can be seen in https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_epoll.c
-
-I have created several tests with different system, the default one is with **Epoll**, but then I created the `accept_client_fork.c` file,
-That creates a process (fork) for each request, and the results are very bad.
-
-I have also created a small thread pool `accept_client_thread.c`, if I can really call it that, where 5 threads are created and in each of them new clients can be accepted, this is considerably faster. So the ideal would be to create a **real thread pool**, where these connections are managed with **Epoll** and putting a limit of connections in each thread, although I still don't have it clear, I would have to investigate a little more.
+At first it started as a single test with Epoll, but I have continued practising and finally got a small server serving static content with Epoll and Pthread https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_thread_epoll.c
 
 I have added a **priority queue with the heap** data structure (min-heap), to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser.
 
@@ -115,12 +110,11 @@ Transfer/sec:     10.97MB
 # TODO
 
 * [x] Add support for HTTP keep-alive connections
-* [x] Add prethread(thread pool) and prefork versions
+* [x] Add pre-threaded (thread pool) and pre-forking versions
 * [ ] Decode the URL
 * [ ] Check safe url directory. Example ../public/../../etc/passwd
 * [ ] Add support for Accept-Ranges 
      * https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
-* [ ] Reduce the number of times dynamic memory is used with `malloc`
 * [ ] Add support for compression
      * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
      * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
@@ -128,7 +122,7 @@ Transfer/sec:     10.97MB
 * [ ] Add support for HTTPS
 * [ ] Add tests
 * [ ] Daemonize the server
-* [ ] Decouple logging from main program (thread and queue)
+* [ ] Decouple logging from main program (I have now set it with aio_write)
 
 # References
 
