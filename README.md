@@ -69,6 +69,25 @@ Usage: bin/ubserver [ options ]
 ```
 bin/ubserver -p 3001 -a 127.0.0.1 --logger-path /home/chiqui3d/www/CS50/c/sockets/server-html/
 ```
+
+# TODO
+
+* [x] Add support for HTTP keep-alive connections
+* [x] Add pre-threaded (thread pool)
+* [ ] URL decoding (e.g. %20 -> space)
+* [ ] Check safe url directory. Example ../../etc/passwd
+* [ ] Add support for Accept-Ranges 
+     * https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
+* [ ] Add support for compression
+     * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
+     * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
+* [ ] Look out for more optimizations [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
+* [ ] Add support for HTTPS
+* [ ] Add tests
+* [ ] Daemonize the server
+* [ ] Decouple logging from main program
+
+
 ##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/hello
 Great results with a single Hello World, compared to the next test where i have to create the `struct Response`, load mime types, generate the `headers` dynamically (although some headers are hard coded) and `send` a large HTML file.
 
@@ -110,23 +129,6 @@ Running 30s test @ http://127.0.0.1:3001
 Requests/sec:    746.87
 Transfer/sec:     10.97MB
 ```
-
-# TODO
-
-* [x] Add support for HTTP keep-alive connections
-* [x] Add pre-threaded (thread pool)
-* [ ] URL decoding (e.g. %20 -> space)
-* [ ] Check safe url directory. Example ../../etc/passwd
-* [ ] Add support for Accept-Ranges 
-     * https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
-* [ ] Add support for compression
-     * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
-     * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
-* [ ] Look out for more optimizations [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
-* [ ] Add support for HTTPS
-* [ ] Add tests
-* [ ] Daemonize the server
-* [ ] Decouple logging from main program
 
 # References
 
