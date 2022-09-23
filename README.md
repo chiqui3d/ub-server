@@ -112,7 +112,7 @@ Transfer/sec:     10.97MB
 * [x] Add support for HTTP keep-alive connections
 * [x] Add pre-threaded (thread pool) and pre-forking versions
 * [ ] Decode the URL
-* [ ] Check safe url directory. Example ../public/../../etc/passwd
+* [ ] Check safe url directory. Example ../../etc/passwd
 * [ ] Add support for Accept-Ranges 
      * https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
 * [ ] Add support for compression
