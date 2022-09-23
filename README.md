@@ -6,7 +6,7 @@ At first it started as a single test with Epoll, but I have continued practising
 
 I have added a **priority queue with the heap** data structure (min-heap), to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser.
 
-https://github.com/chiqui3d/ub-server/blob/main/src/accept_client_epoll.c#38
+https://github.com/chiqui3d/ub-server/blob/main/src/accept_client_epoll.c#L38
 
 https://github.com/chiqui3d/ub-server/blob/main/src/queue_connections.c
 
