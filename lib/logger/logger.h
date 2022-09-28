@@ -64,11 +64,8 @@ void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int co
 
 #ifdef NDEBUG
 #define logDebug(message, ...)
-#define consoleDebug(message, ...)
 #else
-#define logDebug(message, ...) logMessage(LOG_LEVEL_DEBUG, true, __FILE__, __LINE__, message, ##__VA_ARGS__)
-#define consoleDebug(message, ...) \
-    fprintf(stderr, RED "\nConsole Debug: " BLUE "%s:%d" RESET "\n" message "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define logDebug(message, ...) logMessage(LOG_LEVEL_DEBUG, false, __FILE__, __LINE__, message, ##__VA_ARGS__)
 #endif
 
 #define logInfo(message, ...) logMessage(LOG_LEVEL_INFO, false, __FILE__, __LINE__, message, ##__VA_ARGS__)

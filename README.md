@@ -2,11 +2,11 @@
 
 **Undefined Behavior Server** is a HTTP 1.1 server made with **Epoll** and **Pthread** for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`)
 
-At first it started as a single test with Epoll, but I have continued practising and finally got a small server serving static content with Epoll and Pthread https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_thread_epoll.c, The epoll file descriptor is shared between the created threads, but each has its own event array.
+At first it started as a single test with Epoll, but I have continued practising and finally got a small server serving static content with epoll and pthread https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_thread_epoll.c. Currently, each thread has its own `epollFd`, I still have to practice a bit more with **mutex** to be able to share `epollFd` between all threads, and the priority queue does not receive any **race conditions**.
 
-I have added a **priority queue with the heap** data structure (min-heap), to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser.
+The priority queue is made with the data structure min-heap, to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser.
 
-https://github.com/chiqui3d/ub-server/blob/main/src/accept_client_epoll.c#L38
+https://github.com/chiqui3d/ub-server/blob/main/src/accept_client_epoll.c#L30
 
 https://github.com/chiqui3d/ub-server/blob/main/src/queue_connections.c
 
@@ -16,7 +16,7 @@ Currently, I have downloaded a free HTML template and put it directly into the `
 
 But as I said before, although it works, it still requires a lot of validation, and it is possible that it has some errors when dealing with some headers or options.
 
-Some headers are added manually as can be seen in the code https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L198, such as the cache header, which disabled the browser cache to avoid unexpected results during testing.
+Some headers are added manually as can be seen in the code https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L121, such as the cache header, which disabled the browser cache to avoid unexpected results during testing.
 
 ## Directory Structure
 
@@ -26,7 +26,7 @@ Some headers are added manually as can be seen in the code https://github.com/ch
 * **lib**: Contains the libraries of the server. Trying to separate program code with other reusable code.
 * **public**: Contains the static files of the server (html, css, js, images, etc).
 * **src**: Source code of the server.
-* **test**: Contains the test files of the server. Currently empty 😫
+* **test**: Contains the test files of the server
 
 ## Dependencies
 Currently the only dependency is the magic library to read the MIME type of a file. Installation is simple for Ubuntu:
@@ -41,7 +41,7 @@ Then include the flag for the compiler as you can see the MAKEFILE
 ```
 The use of this library can be seen in:
 
-    https://github.com/chiqui3d/ud-server/blob/main/src/response.c#L153
+    https://github.com/chiqui3d/ud-server/blob/main/src/response.c#L79
 
 
 ## Compilation/Installation
@@ -69,6 +69,8 @@ Usage: bin/ubserver [ options ]
 ```
 bin/ubserver -p 3001 -a 127.0.0.1 --logger-path /home/chiqui3d/www/CS50/c/sockets/server-html/
 ```
+# Mention to
+* @skeeto from the C_Programming Reddit community, who has corrected me and taught me many things. Besides, the only test that currently exists has been realized by him to explain and teach me how the server should respond when sending bytes at a time.
 
 # TODO
 
@@ -83,7 +85,7 @@ bin/ubserver -p 3001 -a 127.0.0.1 --logger-path /home/chiqui3d/www/CS50/c/socket
      * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
 * [ ] Look out for more optimizations [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
 * [ ] Add support for HTTPS
-* [ ] Add tests
+* [ ] Add more tests
 * [ ] Daemonize the server
 * [ ] Decouple logging from main program
 
@@ -100,41 +102,39 @@ Running 30s test @ http://127.0.0.1:3001/hello
   433823 requests in 30.12s, 61.65MB read
 Requests/sec:  14402.00
 Transfer/sec:      2.05MB
-
 ```
 
-##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/index.html
-I am not very happy with these results.
 
+##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/index.html
 ```
 Running 30s test @ http://127.0.0.1:3001
   2 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   465.64ms   43.21ms 601.18ms   90.28%
-    Req/Sec   106.96     38.61   202.00     72.29%
-  6398 requests in 30.08s, 93.98MB read
-Requests/sec:    212.71
-Transfer/sec:      3.12MB
-
+    Latency   136.52ms   98.13ms 784.54ms   73.47%
+    Req/Sec   394.35     67.24   550.00     70.78%
+  23549 requests in 30.09s, 345.92MB read
+Requests/sec:    782.63
+Transfer/sec:     11.50MB
 ```
-##  wrk -t2 -c100 -d30s http://127.0.0.1:3001/index.html
-These tests are realized with accept_client_thread.c.
+
+##  wrk -t2 -c1000 -d30s http://127.0.0.1:3001/index.html
 ```
 Running 30s test @ http://127.0.0.1:3001
-  2 threads and 100 connections
+  2 threads and 1000 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   133.12ms   12.59ms 283.03ms   82.85%
-    Req/Sec   376.27     37.33   474.00     72.62%
-  22471 requests in 30.09s, 330.09MB read
-Requests/sec:    746.87
-Transfer/sec:     10.97MB
+    Latency   935.56ms  491.84ms   2.00s    61.66%
+    Req/Sec   407.15     63.81   620.00     69.02%
+  24117 requests in 30.07s, 354.27MB read
+  Socket errors: connect 0, read 0, write 0, timeout 3478
+Requests/sec:    802.13
+Transfer/sec:     11.78MB
 ```
 
 # References
 
 * [Advanced Linux Programming book](https://mentorembedded.github.io/advancedlinuxprogramming/)
-* https://stackoverflow.com/questions/tagged/c
 * https://www.reddit.com/r/C_Programming/
+* https://stackoverflow.com/questions/tagged/c
 
 I would like to read the following books, some of which I have used for reference, but have not completed.
 

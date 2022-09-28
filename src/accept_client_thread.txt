@@ -26,7 +26,6 @@
 
 #define MAX_THREADS 5
 
-struct Options OPTIONS;
 
 pthread_mutex_t threadDataMutex;
 struct threadData {

@@ -10,5 +10,6 @@ struct Header {
 struct Header *addHeader(struct Header *header, char *name, char *value);
 char *getHeader(struct Header *header, char *name);
 void freeHeader(struct Header *header);
+void printHeaders(struct Header *header);
 
 #endif // HEADER_H

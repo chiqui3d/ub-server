@@ -44,3 +44,10 @@ void freeHeader(struct Header *header) {
     }
 
 }
+
+void printHeaders(struct Header *header) {
+    while (header != NULL) {
+        printf("%s: %s\n", header->name, header->value);
+        header = header->next;
+    }
+}

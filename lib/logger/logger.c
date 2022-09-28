@@ -2,7 +2,7 @@
 #include <errno.h> // for errno
 #include <fcntl.h> // for open() nonblocking socket
 #include <fcntl.h>
-#include <stdio.h> // for sprintf()
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
@@ -193,18 +193,19 @@ void logMessage(enum LOG_LEVEL level, bool showErrno, char *codeFileName, int co
     aiocbp->aio_sigevent.sigev_notify = SIGEV_NONE;
 
     if (aio_write(aiocbp) == -1) {
-        die("Error writing to logger file");
+        die("aio_write: Error writing to logger file");
     }
 
     while (aio_error(aiocbp) == EINPROGRESS) {
         // wait until the write is done
     }
-
-    if (aio_return(aiocbp) == -1) {
-        die("Error writing to logger file");
+    int loggerWriteResult = aio_return(aiocbp);
+    free(aiocbp);
+    if (loggerWriteResult == -1) {
+        fprintf(stderr, "%s", "aio_return: Error writing to logger file");
     }
 
-    /* if (writeAll(fileFd, fullMessage, lenFullMessage) == -1) {
+   /*  if (writeAll(fileFd, fullMessage, lenFullMessage) == -1) {
         die("Error writing to logger file");
     } */
 }
@@ -223,18 +224,14 @@ size_t writeAll(int fd, const void *buffer, size_t count) {
     while (left_to_write > 0) {
         size_t written = write(fd, buffer, count);
         if (written == -1) {
-            // An error occurred
             if (errno == EINTR) {
                 // The call was interrupted by a signal
-                return 0;
+               continue;
             }
             return -1;
         } else {
-            // Keep count of how much more we need to write.
             left_to_write -= written;
         }
     }
-    // We should have written no more than COUNT bytes!
-    // The number of bytes written is exactly COUNT
     return count;
 }

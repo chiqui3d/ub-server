@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <limits.h>
+#include <string.h>
 
 #include "die.h"
 
@@ -17,7 +18,7 @@ void die(const char *message, ...) {
   if (errno != 0) {
     fprintf(stderr, "%s | %s", buffer, strerror(errno));
   } else {
-    fprintf(stderr, buffer);
+    fprintf(stderr, "%s", buffer);
   }
   fprintf(stderr, "\n");
 

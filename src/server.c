@@ -15,6 +15,9 @@
 #include "helper.h"
 #include "server.h"
 
+volatile sig_atomic_t sigintReceived;
+bool *sigIntReceived; 
+
 void serverRun(struct Options options) {
 
     int socketServerFd = socket(PF_INET, SOCK_STREAM, 0);
@@ -66,12 +69,13 @@ void serverRun(struct Options options) {
     makeSocketNonBlocking(socketServerFd);
 
     // SOMAXCONN: Maximum connections queue (not accepted yet)
-    // cat /proc/sys/net/core/somaxconn
+    // cat /proc/sys/net/core/somaxconn 4096
+    // -1: unlimited
     if (listen(socketServerFd, 4096) == -1) {
         die("listen");
     }
 
-    printf(GREEN "Server listening on http://%s:%d ..." RESET "\n\n", inet_ntoa(socketAddress.sin_addr), htons(socketAddress.sin_port));
+    printf("\n"GREEN"Server listening on http://%s:%d ..."RESET"\n\n", inet_ntoa(socketAddress.sin_addr), htons(socketAddress.sin_port));
 
     acceptClientsThreadEpoll(socketServerFd);
     //acceptClientsThread(socketServerFd);

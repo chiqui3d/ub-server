@@ -1,10 +1,13 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+
+#define REQUEST_PATH_MAX_SIZE 4096
 #define BUFFER_REQUEST_SIZE 1024
 #define BUFFER_RESPONSE_SIZE 4096
 #define MAX_CONNECTIONS 1024
 #define KEEP_ALIVE_TIMEOUT 60 // seconds
+#define MAX_EPOLL_EVENTS 1024
 
 // TCP Keep Alive, TCP and HTTP keep-alive are different
 // https://stackoverflow.com/questions/411460/use-http-keep-alive-for-server-to-communicate-to-client
@@ -27,7 +30,7 @@
 #include <netinet/tcp.h> // for SOL_TCP and KeepAlive
 
 
-volatile sig_atomic_t sigintReceived;
+extern volatile sig_atomic_t sigintReceived;
 
 void serverRun(struct Options options);
 

@@ -31,7 +31,6 @@
 #include "response.h"
 #include "server.h"
 
-struct Options OPTIONS;
 
 void handleChildTerm(int signum) {
     // avoid zombie processes

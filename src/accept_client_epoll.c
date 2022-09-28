@@ -16,169 +16,202 @@
 #include "response.h"
 #include "server.h"
 
-struct Options OPTIONS;
+static pthread_mutex_t threadDataMutex = PTHREAD_MUTEX_INITIALIZER;
 
-pthread_mutex_t threadDataMutex = PTHREAD_MUTEX_INITIALIZER;
-
-void acceptClientsEpoll(int socketServerFd) {
+void handleEpollFacade(int socketServerFd) {
 
     int epollFd = epoll_create1(0);
     if (epollFd < 0) {
         die("epoll_create failed");
     }
-    addClient(epollFd, socketServerFd, 0);
-
-    handleEpoll(socketServerFd, epollFd);
-}
-
-void handleEpoll(int socketServerFd, int epollFd) {
+    addEpollClient(epollFd, socketServerFd, 0);
 
     struct epoll_event events[MAX_EPOLL_EVENTS];
     struct QueueConnectionsType queueConnections = createQueueConnections();
 
+    handleEpoll(socketServerFd, epollFd, events, &queueConnections);
+}
+
+void handleEpoll(int socketServerFd, int epollFd, struct epoll_event *events, struct QueueConnectionsType *queueConnections) {
+
+    long int threadId = pthread_self();
+
     while (!sigintReceived) {
         // calculate epoll timeout
         time_t now = time(NULL);
-        struct QueueConnectionElementType lastConnectionQueueElement = peekQueueConnections(&queueConnections);
+        struct QueueConnectionElementType firstConnectionQueueElement = peekQueueConnections(queueConnections);
         int timeout = -1;
-        if (lastConnectionQueueElement.fd != 0) {
-            timeout = (now - lastConnectionQueueElement.priorityTime) * 1000;
+        if (firstConnectionQueueElement.clientFd != 0) {
+            timeout = (now - firstConnectionQueueElement.priorityTime) * 1000;
         }
-        logDebug(BLUE "timeout: %d" RESET, timeout);
-
         // check for CLOSE client connection by time_t
-        while (lastConnectionQueueElement.fd != 0 && difftime(now, lastConnectionQueueElement.priorityTime) >= KEEP_ALIVE_TIMEOUT) {
+        while (firstConnectionQueueElement.clientFd != 0 && difftime(now, firstConnectionQueueElement.priorityTime) >= KEEP_ALIVE_TIMEOUT) {
             char date[DATETIME_HELPER_SIZE];
-            timeToDatetimeString(lastConnectionQueueElement.priorityTime, date);
-            logDebug(BLUE "Close by timeout with fd %i and dateTime %s" RESET, lastConnectionQueueElement.fd, date);
-            dequeueConnection(&queueConnections);
-            closeClient(epollFd, lastConnectionQueueElement.fd);
-            lastConnectionQueueElement = peekQueueConnections(&queueConnections);
+            timeToDatetimeString(firstConnectionQueueElement.priorityTime, date);
+            logDebug("Close by timeout with fd %i and dateTime %s", firstConnectionQueueElement.clientFd, date);
+            dequeueConnection(queueConnections);
+            closeEpollClient(epollFd, firstConnectionQueueElement.clientFd);
+            firstConnectionQueueElement = peekQueueConnections(queueConnections);
         }
 
-        int i, num_ready;
+        int i, readyEventClients;
         // -1 block forever, 0 non-blocking, > 0 timeout in milliseconds
-        num_ready = epoll_wait(epollFd, events, MAX_EPOLL_EVENTS, timeout);
-        if (num_ready < 0) {
+        readyEventClients = epoll_wait(epollFd, events, MAX_EPOLL_EVENTS, timeout);
+        if (readyEventClients < 0) {
+            if (errno == EINTR) {
+                // avoid error when we receive a signal
+                continue;
+            }
             logWarning("epoll_wait failed");
         }
-        for (i = 0; i < num_ready; i++) {
+        for (i = 0; i < readyEventClients; i++) {
             if (events[i].data.fd == socketServerFd) {
-                // accept new client
-                consoleDebug("Accepting new connection.........");
+                //logDebug("Accepting new connection in the thread %ld", threadId);
                 // pthread_mutex_lock(&threadDataMutex);
-                acceptConnection(epollFd, socketServerFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
+                acceptEpollConnection(epollFd, socketServerFd, EPOLLIN | EPOLLET);
                 // pthread_mutex_unlock(&threadDataMutex);
-
             } else if (events[i].events & EPOLLIN) {
-                // read from client
+
                 int clientFd = events[i].data.fd;
+                struct QueueConnectionElementType *connection = getConnectionByFd(queueConnections, clientFd);
 
-                consoleDebug("Reading from client fd %i.........", clientFd);
-
-                char buffer[BUFFER_REQUEST_SIZE];
-                bool doneForClose = 0;
-                readRequest(buffer, clientFd, &doneForClose);
-
-                if (doneForClose == 1) { // request close connection
-                    logDebug(BLUE "Done for close" RESET);
-                    dequeueConnectionByFd(&queueConnections, clientFd);
-                    closeClient(epollFd, clientFd);
-                    continue;
-                }
-
-                struct Request *request = makeRequest(buffer, clientFd);
-
-                // TODO: Refactoring. Hardcoded for now
-                if (strncmp(request->protocolVersion, "HTTP/1.1", 8) != 0) {
-                    unsupportedProtocolResponse(clientFd, request->protocolVersion);
-                    logRequest(request);
-                    freeRequest(request);
-                    continue;
-                }
-                // TODO: Router system
-                if (strcmp(request->path, "/hello") == 0) {
-                    helloResponse(clientFd);
-                    logRequest(request);
-                    freeRequest(request);
-                    continue;
-                }
-
-                // make response
-                struct Response *response = makeResponse(request, OPTIONS.htmlDir);
-                // send response
-                sendResponse(response, request, clientFd);
-
-                if (response->closeConnection == false) {
-                    // rearm the file descriptor with a new event mask
-                    modClient(epollFd, clientFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
-                    // add to queue for keep alive
-                    if (queueConnections.indexQueue[clientFd] == -1) {
-                        struct QueueConnectionElementType connectionQueueElement = {time(NULL), clientFd};
-                        enqueueConnection(&queueConnections, connectionQueueElement);
-                    } else {
-                        // update priorityTime and re-order queue
-                        updateQueueConnection(&queueConnections, clientFd, time(NULL));
+                // read request
+                if (connection->state == STATE_CONNECTION_RECV) {
+                    //logDebug("recvRequest with fd %i", clientFd);
+                    recvRequest(connection);
+                    if (connection->doneForClose) {
+                        logDebug("Close by recvRequest with fd %i", clientFd);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
                     }
-                } else {
-                    dequeueConnectionByFd(&queueConnections, clientFd);
-                    closeClient(epollFd, clientFd);
+                }
+                // rearm the client, so we can receive more data
+                if (connection->state == STATE_CONNECTION_RECV) {
+                    logDebug("continue recvRequest with fd %i", clientFd);
+                    // modEpollClient(epollFd, clientFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
+                    continue;
                 }
 
-                freeResponse(response);
-                logRequest(request);
-                freeRequest(request);
+                if (connection->requestHeaders == NULL) {
+                    //logDebug("processRequest with fd %i", clientFd);
+                    bool isValidRequest = processRequest(connection);
 
-            } else if ((events[i].events & EPOLLERR) ||
-                       (events[i].events & EPOLLHUP) ||
-                       (events[i].events & EPOLLRDHUP)) {
-                // TODO: never happens, remove?
-                logDebug("EPOLLERR|EPOLLHUP|EPOLLRDHUP");
+                    if (!isValidRequest) {
+                        logDebug("badRequestResponse with fd %i", clientFd);
+                        badRequestResponse(clientFd);
+                        logRequest(*connection);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+                    // check supported protocol
+                    char *protocol = connection->protocolVersion;
+                    if (strcmp(protocol, "HTTP/1.0") != 0 && strcmp(protocol, "HTTP/1.1") != 0) {
+                        unsupportedProtocolResponse(clientFd, protocol);
+                        logRequest(*connection);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+
+                    // TODO: Router system
+                    if (strcmp(connection->path, "/hello") == 0) {
+                        helloResponse(clientFd);
+                        logRequest(*connection);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+                }
+
+                // make response and response headers buffer
+                if (connection->state == STATE_CONNECTION_SEND_HEADERS && connection->responseBufferHeaders == NULL) {
+                    // make response
+                    //logDebug("makeResponse fd %i", clientFd);
+                    makeResponse(connection);
+                }
+
+                if (connection->state == STATE_CONNECTION_SEND_HEADERS) {
+                    //logDebug("sendResponseHeaders with fd %i", clientFd);
+                    sendResponseHeaders(connection);
+                    if (connection->doneForClose) {
+                        logDebug("Close by sendResponseHeaders with fd %i", clientFd);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+                }
+
+                if (connection->state == STATE_CONNECTION_SEND_HEADERS) {
+                    logDebug("Continue sendResponseHeaders with fd %i", clientFd);
+                    // modEpollClient(epollFd, clientFd, EPOLLOUT | EPOLLET | EPOLLONESHOT);
+                    continue;
+                }
+
+                if (connection->state == STATE_CONNECTION_SEND_BODY) {
+                    //logDebug("sendResponseFile with fd %i", clientFd);
+                    sendResponseFile(connection);
+                    if (connection->doneForClose) {
+                        logDebug("Close by sendResponseFile with fd %i", clientFd);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+                }
+
+                logRequest(*connection);
+                if (connection->keepAlive == true) {
+                    // rearm the file descriptor with a new event mask
+                    // modClient(epollFd, clientFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
+                    updateQueueConnection(queueConnections, clientFd);
+                } else {
+                    dequeueConnectionByFd(queueConnections, clientFd);
+                    closeEpollClient(epollFd, clientFd);
+                }
             }
         }
 
-        printQueueConnections(&queueConnections);
+        // printQueueConnections(queueConnections);
+    }
+
+    logDebug("kill sigIntReceived in the thread %ld", threadId);
+    unsigned short int i;
+    for (i = 0; i < queueConnections->currentSize; i++) {
+        freeConnection(&queueConnections->connections[i]);
     }
 }
 
-void acceptConnection(int epollFd, int socketServerFd, int events) {
+// Facade for test one epoll per thread
+
+void acceptEpollConnection(int epollFd, int socketServerFd, int events) {
     while (1) {
         struct sockaddr_in client_address;
         socklen_t client_address_len = sizeof(client_address);
         int clientFd = accept(socketServerFd, (struct sockaddr *)&client_address, &client_address_len);
         // alternative to makeSocketNonBlocking function with fcntl, we save a call to the system
         // int client_fd = accept4(socket_server_fd, (struct sockaddr *)&client_address, (socklen_t *)&client_address_len, SOCK_NONBLOCK);
-
         if (clientFd < 0) {
-            if (errno != EAGAIN || errno != EWOULDBLOCK) {
-                die("accept() failed");
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                logWarning("accept() failed");
             }
             break;
         }
-        /*         if (clientFd >= MAX_CONNECTIONS) {
-                    logWarning("Maximum connections (%d) exceeded by fd %d", MAX_CONNECTIONS, clientFd);
-                    tooManyRequestResponse(clientFd);
-                    close(clientFd);
-                    return;
-                } */
 
         logDebug("Connect with the client %d %s:%d", clientFd, inet_ntoa(client_address.sin_addr), htons(client_address.sin_port));
         makeSocketNonBlocking(clientFd);
-        if (events == 0) {
-            events = EPOLLIN | EPOLLET;
-        }
-        addClient(epollFd, clientFd, events);
+        addEpollClient(epollFd, clientFd, events);
     }
 }
 
-struct epoll_event buildEvent(int events, int fd) {
+struct epoll_event buildEpollEvent(int events, int fd) {
     struct epoll_event event = {0};
     event.events = events;
     event.data.fd = fd;
     return event;
 }
 
-void closeClient(int epollFd, int clientFd) {
+void closeEpollClient(int epollFd, int clientFd) {
     // logDebug("Delete file descriptor %d from epoll", clientFd);
     int s = epoll_ctl(epollFd, EPOLL_CTL_DEL, clientFd, NULL);
     if (s == -1 && errno != EBADF) {
@@ -188,24 +221,24 @@ void closeClient(int epollFd, int clientFd) {
     close(clientFd);
 }
 
-void addClient(int epollFd, int clientFd, int events) {
+void addEpollClient(int epollFd, int clientFd, int events) {
     if (events == 0) {
         events = EPOLLIN | EPOLLET;
     }
     // (EPOLLIN | EPOLLET Edge Triggered (ET) for non-blocking sockets
     // EPOLLERR and EPOLLHUP are always included even if you're not requesting them
-    struct epoll_event event = buildEvent(events, clientFd);
+    struct epoll_event event = buildEpollEvent(events, clientFd);
     int s = epoll_ctl(epollFd, EPOLL_CTL_ADD, clientFd, &event);
     if (s == -1) {
         die("EPOLL_CTL_ADD failed");
     }
 }
 
-void modClient(int epollFd, int clientFd, int events) {
+void modEpollClient(int epollFd, int clientFd, int events) {
     if (events == 0) {
         events = EPOLLIN | EPOLLET;
     }
-    struct epoll_event event = buildEvent(events, clientFd);
+    struct epoll_event event = buildEpollEvent(events, clientFd);
     int s = epoll_ctl(epollFd, EPOLL_CTL_MOD, clientFd, &event);
     if (s == -1) {
         die("EPOLL_CTL_MOD failed");

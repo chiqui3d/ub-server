@@ -17,7 +17,7 @@ CFLAGS   := -std=c17 -D_GNU_SOURCE=1
 CFLAGS 	 += -pthread
 CFLAGS 	 += -DNDEBUG
 CFLAGS   += -MMD -Wall -Wextra -Wno-vla -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wshadow
-CFLAGS   += -fsanitize=signed-integer-overflow -fsanitize=undefined
+CFLAGS   += -fsanitize=signed-integer-overflow -fsanitize=undefined -fno-common
 ## mime types ## 
 # sudo apt-get install libmagic-dev 
 # #include <magic.h>
@@ -74,11 +74,20 @@ $(BUILDDIR)/%.o:$(SRCDIR)/%.c FORCE
 # 	@echo "Created object $@ ..."
 # 	$(CC) $(CFLAGS) -c $< -o $@
 
+test-request: $(BUILDDIR)/test-request.o
+	$(CC) $(CFLAGS) $^ -o bin/test-request
 
-.PHONY: FORCE test clean
+$(BUILDDIR)/test-request.o: tests/request.c FORCE
+	$(CC) $(CFLAGS) -c $< -o $@
+
+run-test:
+	@./$(TARGET)
+	@./bin/test-request
+
+.PHONY: FORCE clean
 FORCE:
 
-test:
+test-variables:
 	@echo "Project directory: $(PROJDIR)"
 	@echo "SOURCES:"
 	@echo $(SOURCES)

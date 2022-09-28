@@ -3,63 +3,79 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "request.h"
 #include "../lib/color/color.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "helper.h"
-#include "request.h"
 #include "server.h"
+#include "options.h"
 
-char *readRequest(char *buffer, int clientFd, bool *doneForClose) {
 
-    int totalBytesRead = 0;
-    int restBytesRead = BUFFER_REQUEST_SIZE - 1; // for add null terminator char
-    while (restBytesRead > 0) {                  // MSG_PEEK
-        ssize_t bytesRead = recv(clientFd, buffer + totalBytesRead, restBytesRead, 0);
-        if (bytesRead < 0) {
-            // Ignore EWOULDBLOCK|EAGAIN, it not mean you're disconnected, it just means there's nothing to read now
-            if (errno != EAGAIN || errno != EWOULDBLOCK) {
-                // possible ECONNRESET or EPIPE with wrk program
-                logError("recv() request failed");
-                *doneForClose = 1;
-            }
-            break;
-        } else if (bytesRead == 0) {
-            *doneForClose = 1;
-            break;
-        } else {
-            totalBytesRead += bytesRead;
-            restBytesRead -= bytesRead;
-        }
+bool isRequestComplete(char *buffer) {
+    char *endOfRequest = strstr(buffer, "\r\n\r\n");
+    if (endOfRequest != NULL) {
+        return true;
     }
-    buffer[totalBytesRead] = '\0';
-
-    return buffer;
+    return false;
 }
 
-struct Request *makeRequest(char *buffer, int clientFd) {
+void recvRequest(struct QueueConnectionElementType *connection) {
 
-    struct Request *request = malloc(sizeof(struct Request));
-    if (NULL == request) {
-        die("malloc request");
+    while (1) {
+        ssize_t bytesRead = recv(connection->clientFd, connection->requestBuffer + connection->requestBufferOffset, connection->requestBufferLength - connection->requestBufferOffset, 0);
+        if (bytesRead < 0) {
+            if (errno == EINTR) {
+                // interrupted by a signal before any data was read
+                continue;
+            }
+            // EWOULDBLOCK|EAGAIN, it not mean you're disconnected, it just means there's nothing to read now
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (isRequestComplete(connection->requestBuffer)) {
+                    connection->requestBuffer[connection->requestBufferOffset] = 0;
+                    connection->state = STATE_CONNECTION_SEND_HEADERS;
+                    connection->requestBufferOffset = 0;
+                    return;
+                }
+                return;
+            }
+            logError("recv() request failed. DoneForClose");
+            connection->doneForClose = 1;
+            return;
+        }
+
+        if (bytesRead == 0) {
+            logDebug("0 bytes read, client disconnected");
+            connection->doneForClose = 1;
+            return;
+        }
+
+        connection->requestBufferOffset += bytesRead;
+        // TODO: 413 Entity too large
     }
+}
 
-    memset(request, 0, sizeof(struct Request));
-    strncpy(request->scheme, "http", 5); // Hardcoded scheme for now
+// false: bad request
+bool processRequest(struct QueueConnectionElementType *connection) {
+
+    char *buffer = connection->requestBuffer;
+    strCopySafe(connection->scheme, "http");
 
     // get ip address from clientFd socket
     struct sockaddr_in clientAddr;
     socklen_t clientAddrLen = sizeof(clientAddr);
-    if (getpeername(clientFd, (struct sockaddr *)&clientAddr, &clientAddrLen) < 0) {
-        die("getpeername");
+    if (getpeername(connection->clientFd, (struct sockaddr *)&clientAddr, &clientAddrLen) < 0) {
+        logError("getpeername failed");
+        return false;
     }
 
     char *ip = inet_ntoa(clientAddr.sin_addr);
-    strCopySafe(request->ip,ip);
+    strCopySafe(connection->ip, ip);
 
     char *firstLine = strstr(buffer, "\r\n"); // CRLF
     if (NULL == firstLine) {
-        die("strstr firstLine");
+        logError("firstLine is NULL, no CRLF found. Report bad request");
+        return false;
     }
 
     size_t firstLineLength = firstLine - buffer;
@@ -67,41 +83,61 @@ struct Request *makeRequest(char *buffer, int clientFd) {
 
     strncpy(requestLine, buffer, firstLineLength);
     requestLine[firstLineLength] = '\0';
+    //printf("requestLine:\n%s\n", requestLine);
 
     // buffer without first line and CRLF
     buffer += firstLineLength + 2;
 
-    char method[10], path[100], protocolVersion[9];
-
+    char method[10], path[REQUEST_PATH_MAX_SIZE], protocolVersion[9];
     sscanf(requestLine, "%s %s %s", method, path, protocolVersion);
 
-    request->method = strToMethod(method);
+    connection->path = strdup(path);
+    connection->method = strToMethod(method);
+    strCopySafe(connection->protocolVersion, protocolVersion);
 
-    if (request->method == METHOD_UNSUPPORTED) {
-        die("UNSUPPORTED method %s", method);
+    if (connection->method == METHOD_UNSUPPORTED) {
+        logError("UNSUPPORTED method %s", method);
+        return false;
     }
 
-    request->path = strdup(path);
-    request->protocolVersion = strdup(protocolVersion);
+    char realPath[REQUEST_PATH_MAX_SIZE];
+    strCopySafe(realPath, connection->path);
+    char *tmpQuery = strchr(realPath, '?');
+    if (tmpQuery != NULL) {
+        *tmpQuery = '\0';
+    }
+    // is Index
+    if (realPath[0] == '/' && realPath[1] == '\0') {
+        strncat(realPath, "index.html", 11);
+    }
+
+    size_t absolutePathSize = strlen(OPTIONS.htmlDir) + strlen(realPath) + 1;
+    char absolutePath[absolutePathSize];
+    snprintf(absolutePath, absolutePathSize, "%s%s", OPTIONS.htmlDir, realPath);
+    connection->absolutePath = strdup(absolutePath);
+
+    //printf("buffer:\n%s\n", buffer);
 
     char *body = strstr(buffer, "\r\n\r\n"); // double CRLF pair to end of headers
-
     if (NULL == body) {
-        die("strstr body, not double CRLF pair found");
+        logInfo("Request without headers");
+        return true;
     }
     body += 4; // remove double CRLF pair to end of headers and beginning of body
     int bodyLength = strlen(body);
     body[bodyLength] = '\0';
     if (bodyLength > 0) {
-        request->body = strdup(body);
+        connection->requestBody = strdup(body);
     }
 
-    char *headersString = malloc((body - buffer + 1) * sizeof(char));
-    if (NULL == headersString) {
-        die("malloc headers");
-    }
-    memcpy(headersString, buffer, body - buffer);
-    headersString[body - buffer] = '\0';
+    //printf("body:\n%s\n", body);
+
+    size_t headersSize = body - connection->requestBuffer - firstLineLength;
+    char headersString[headersSize + 1];
+    strncpy(headersString, connection->requestBuffer + firstLineLength, headersSize);
+    headersString[headersSize] = '\0';
+    //printf("headersString:\n%s\n", headersString);
+   
 
     char *header = strtok(headersString, "\r\n");
     while (header != NULL) {
@@ -132,70 +168,59 @@ struct Request *makeRequest(char *buffer, int clientFd) {
 
         headerNode->name = nameLower;
         headerNode->value = value;
-        headerNode->next = request->headers;
-        request->headers = headerNode;
+        headerNode->next = connection->requestHeaders;
+        connection->requestHeaders = headerNode;
         header = strtok(NULL, "\r\n");
     }
 
-    if (headersString != NULL) {
-        free(headersString);
-    }
 
-    return request;
+    return true;
 }
 
-void freeRequest(struct Request *request) {
-
-    free(request->path);
-    free(request->protocolVersion);
-    if (request->body != NULL) {
-        free(request->body);
-    }
-
-    freeHeader(request->headers);
-    free(request);
-}
-
-void printRequest(struct Request *request) {
+void printRequest(struct QueueConnectionElementType connection) {
     printf(RED "Request: \n" RESET);
-    printf("Method: %s\n", methodToStr(request->method));
-    printf("Path: %s\n", request->path);
-    printf("Protocol Version: %s\n", request->protocolVersion);
-    printf("IP: %s\n", request->ip);
-    printf("Scheme: %s\n", request->scheme);
+    printf("Method: %s\n", methodToStr(connection.method));
+    printf("Path: %s\n", connection.path);
+    printf("Absolute path: %s\n", connection.absolutePath);
+    printf("Protocol Version: %s\n", connection.protocolVersion);
+    printf("IP: %s\n", connection.ip);
+    printf("Scheme: %s\n", connection.scheme);
     printf("Headers:\n");
-    struct Header *header = request->headers;
+    struct Header *header = connection.requestHeaders;
     while (header != NULL) {
         printf("%s: %s\n", header->name, header->value);
         header = header->next;
     }
-    if (request->body != NULL) {
-        printf("Body: %s\n", request->body);
+    if (connection.requestBody != NULL) {
+        printf("Body: %s\n", connection.requestBody);
     }
     printf("\n\n");
 }
 
-void logRequest(struct Request *request) {
+void logRequest(struct QueueConnectionElementType connection) {
 
-    size_t bodyLength = strlen(request->body == NULL ? "" : request->body);
-    char *userAgent = getHeader(request->headers, "user-agent");
-    char *referer = getHeader(request->headers, "referer");
-    char *host = getHeader(request->headers, "host");
+    size_t bodyLength = strlen(connection.requestBody == NULL ? "" : connection.requestBody);
+    char *userAgent = getHeader(connection.requestHeaders, "user-agent");
+    char *referer = getHeader(connection.requestHeaders, "referer");
+    char *host = getHeader(connection.requestHeaders, "host");
     char URL[REQUEST_PATH_MAX_SIZE];
 
     if (host != NULL) {
-        size_t URLLen = snprintf(NULL,0, "%s%s%s%s", request->scheme, "://", host, request->path);
-        snprintf(URL, URLLen + 1, "%s%s%s%s", request->scheme, "://", host, request->path);
+        // TODO: not use host header for URL
+        size_t URLLen = snprintf(NULL, 0, "%s%s%s%s",connection.scheme, "://", host, connection.path);
+        snprintf(URL, URLLen + 1, "%s%s%s%s", connection.scheme, "://", host,connection.path);
+    } else if (connection.path != NULL) {
+        strCopySafe(URL, connection.path);
     } else {
         strncpy(URL, "<URL>", 6);
     }
 
     logInfo("Request | \"%s %s %s\" - %lu - %s - %s - %s - \"%s\"",
-            methodToStr(request->method),
-            request->path,
-            request->protocolVersion,
+            methodToStr(connection.method),
+            connection.path,
+            connection.protocolVersion,
             bodyLength,
-            request->ip,
+            connection.ip,
             URL,
             (referer != NULL ? referer : ""),
             (userAgent != NULL ? userAgent : ""));

@@ -18,11 +18,11 @@ void printUsage(bool is_error) {
 }
 
 void printOptions(struct Options options) {
-    consoleDebug("Server options: \n"
+    printf(GREEN"\nServer options:\n"RESET
     "Address: %s\n"
     "Port: %d\n"
     "HTML dir: %s\n"
-    "Logger: %s\n"
+    "Logger type: %s\n"
     "Logger path: %s\n"
    // "TCP Keep-Alive: %s\n\n"
     ,

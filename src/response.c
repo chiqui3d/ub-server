@@ -8,10 +8,12 @@
 #include <sys/socket.h>   // for send()
 #include <unistd.h>       // for close()
 
+#include "response.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
+#include "header.h"
 #include "helper.h"
-#include "response.h"
+#include "options.h"
 #include "server.h"
 
 void unsupportedProtocolResponse(int clientFd, char *protocolVersion) {
@@ -24,131 +26,55 @@ void tooManyRequestResponse(int clientFd) {
     sendAll(clientFd, tooManyRequestResponseTemplate, strlen(tooManyRequestResponseTemplate));
 }
 
+void badRequestResponse(int clientFd) {
+    sendAll(clientFd, badRequestResponseTemplate, strlen(badRequestResponseTemplate));
+}
+
 void helloResponse(int clientFd) {
     sendAll(clientFd, helloResponseTemplate, strlen(helloResponseTemplate));
 }
 
-void printResponse(struct Response *response) {
-    printf("Response:\n");
-    printf("\tStatus: %d\n", response->statusCode);
-    printf("\tAbsolute path: %s\n", response->absolutePath);
-    printf("\tHeaders:\n");
-    struct Header *header = response->headers;
-    while (header != NULL) {
-        printf("\t\t%s: %s\n", header->name, header->value);
-        header = header->next;
-    }
-    printf("\n\n");
-}
+void makeResponse(struct QueueConnectionElementType *connection) {
 
-void freeResponse(struct Response *response) {
-    free(response->absolutePath);
-    freeHeader(response->headers);
-    free(response);
-}
-
-struct Response *makeResponse(struct Request *request, char *htmlDir) {
-    struct Response *response = malloc(sizeof(struct Response));
-    if (response == NULL) {
-        die("malloc() response failed");
-    }
-
-    memset(response, 0, sizeof(struct Response));
-
-    // TODO: Separate version from protocol
-    response->protocolVersion = request->protocolVersion;
-
-    // get connection header
-    char *connectionHeader = getHeader(request->headers, "connection");
-
-    // If there is no connection header or the header is equal to close, then add close connection header
-    if (connectionHeader == NULL || (connectionHeader != NULL && *connectionHeader == 'c')) {
-        response->closeConnection = true;
-        response->headers = addHeader(response->headers, "connection", "close");
-    }
-
-    // add keep-alive header
-    if (connectionHeader != NULL && *connectionHeader == 'k') {
-        response->closeConnection = false;
-
-        size_t lenHeaderKeepAlive = snprintf(NULL, 0, "timeout=%i", KEEP_ALIVE_TIMEOUT);
-        char headerKeepAliveValue[lenHeaderKeepAlive + 1];
-        snprintf(headerKeepAliveValue, lenHeaderKeepAlive + 1, "timeout=%i", KEEP_ALIVE_TIMEOUT);  
-
-        response->headers = addHeader(response->headers, "connection", "keep-alive");                  
-        response->headers = addHeader(response->headers, "keep-alive", headerKeepAliveValue);
-    }
-
-    char path[1024];
-    bool isIndex = false;
-    strCopySafe(path, request->path);
-    char *tmpQuery = strchr(path, '?');
-    if (tmpQuery != NULL) {
-        *tmpQuery = '\0';
-    }
-
-    if (path[0] == '/' && path[1] == '\0') {
-        isIndex = true;
-        strncat(path, "index.html", 11);
-    }
-    size_t absolutePathSize = strlen(htmlDir) + strlen(path) + 1;
-    char absolutePath[absolutePathSize];
-    snprintf(absolutePath, absolutePathSize, "%s%s", htmlDir, path);
-    response->absolutePath = strdup(absolutePath);
-
-    int bodyFd = open(response->absolutePath, O_RDONLY);
+    /******* 1. make response body *******/
+    struct stat statResponseBodyFd;
+    int bodyFd = open(connection->absolutePath, O_RDONLY);
     if (bodyFd == -1) {
-        size_t errorPathSize = strlen(htmlDir) + strlen("/error/error.html") + 1;
+        logError("Absolute path file %s not found", connection->absolutePath);
+        // read html template for errors
+        size_t errorPathSize = strlen(OPTIONS.htmlDir) + strlen("/error/error.html") + 1;
         char errorPath[errorPathSize];
         // TODO: switch for errno with HTTP_STATUS_CODE and save message in Response ?
         if (errno == ENOENT) {
-            response->statusCode = HTTP_STATUS_NOT_FOUND;
-            snprintf(errorPath, errorPathSize, "%s%s", htmlDir, "/error/404.html");
+            connection->responseStatusCode = HTTP_STATUS_NOT_FOUND;
+            snprintf(errorPath, errorPathSize, "%s%s", OPTIONS.htmlDir, "/error/404.html");
         } else {
-            response->statusCode = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-            snprintf(errorPath, errorPathSize, "%s%s", htmlDir, "/error/error.html");
+            connection->responseStatusCode = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+            snprintf(errorPath, errorPathSize, "%s%s", OPTIONS.htmlDir, "/error/error.html");
         }
-        logError("HTML file not found %s", request->path);
         bodyFd = open(errorPath, O_RDONLY);
         if (bodyFd == -1) {
-            response->bodyFd = -1;
-            logError("Error template not found %s", errorPath);
-        } else {
-            struct stat stat_buf;
-            fstat(bodyFd, &stat_buf);
-            response->size = stat_buf.st_size;
-            response->lastModified = stat_buf.st_mtime;
-            response->bodyFd = bodyFd;
+            die("Error template not found %s", errorPath);
         }
+        fstat(bodyFd, &statResponseBodyFd);
 
     } else {
         /* Stat the input file to obtain its size. */
-        struct stat stat_buf;
-        fstat(bodyFd, &stat_buf);
-        response->lastModified = stat_buf.st_mtime;
-        response->size = stat_buf.st_size;
-        response->bodyFd = bodyFd;
-        response->statusCode = HTTP_STATUS_OK;
+        fstat(bodyFd, &statResponseBodyFd);
+        connection->responseStatusCode = HTTP_STATUS_OK;
     }
 
-    return response;
-}
+    connection->bodyFd = bodyFd;
+    connection->bodyLength = statResponseBodyFd.st_size;
+    connection->bodyOffset = 0;
 
-void sendResponse(struct Response *response, struct Request *request, int clientFd) {
+    /******* 2. make response headers *******/
 
-    if (response->bodyFd == -1) {
-        char responseBuffer[1024];
-        if (response->statusCode == HTTP_STATUS_NOT_FOUND) {
-            snprintf(responseBuffer, sizeof(responseBuffer), notFoundResponseTemplate, request->path);
-        } else {
-            snprintf(responseBuffer, sizeof(responseBuffer), "%s", internalServerResponseTemplate);
-        }
-        sendAll(clientFd, responseBuffer, strlen(responseBuffer));
-        return;
-    }
+    size_t responseHeaderSize = 1024;
+    char responseHeader[responseHeaderSize];
 
     char statusCodeReason[33];
-    strCopySafe(statusCodeReason, (char*)HTTP_STATUS_REASON(response->statusCode));
+    strCopySafe(statusCodeReason, (char *)HTTP_STATUS_REASON(connection->responseStatusCode));
 
     magic_t magic = magic_open(MAGIC_MIME_TYPE | MAGIC_PRESERVE_ATIME | MAGIC_SYMLINK);
     // get current directory path
@@ -168,7 +94,7 @@ void sendResponse(struct Response *response, struct Request *request, int client
         magic_close(magic);
         die("magic_load() error");
     }
-    const char *magicMimeType = magic_descriptor(magic, response->bodyFd);
+    const char *magicMimeType = magic_descriptor(magic, connection->bodyFd);
     char mimeType[150];
     strCopySafe(mimeType, (char *)magicMimeType);
 
@@ -178,7 +104,7 @@ void sendResponse(struct Response *response, struct Request *request, int client
     magic_close(magic);
 
     char lastModifiedDate[100];
-    struct tm *tm = localtime(&response->lastModified);
+    struct tm *tm = localtime(&statResponseBodyFd.st_mtime);
     strftime(lastModifiedDate, 100, "%a, %d %b %Y %H:%M:%S GMT", tm);
 
     char currentDate[100];
@@ -186,16 +112,27 @@ void sendResponse(struct Response *response, struct Request *request, int client
     tm = localtime(&now);
     strftime(currentDate, 100, "%a, %d %b %Y %H:%M:%S GMT", tm);
 
-    size_t responseHeaderSize = 1024;
-    char responseHeader[responseHeaderSize];
-    size_t offset = snprintf(responseHeader, responseHeaderSize, "%s %u %s\n", response->protocolVersion, response->statusCode, statusCodeReason);
-    struct Header *header = response->headers;
-    while (header != NULL) {
-        offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "%s: %s\n", header->name, header->value);
-        header = header->next;
+    size_t offset = snprintf(responseHeader, responseHeaderSize, "%s %u %s\n", connection->protocolVersion, connection->responseStatusCode, statusCodeReason);
+
+    // get connection header request
+    char *connectionHeader = getHeader(connection->requestHeaders, "connection");
+
+    // add keep-alive header
+    if (connectionHeader != NULL && *connectionHeader == 'k') {
+        connection->keepAlive = true;
+        size_t lenHeaderKeepAlive = snprintf(NULL, 0, "timeout=%i", KEEP_ALIVE_TIMEOUT);
+        char headerKeepAliveValue[lenHeaderKeepAlive + 1];
+        snprintf(headerKeepAliveValue, lenHeaderKeepAlive + 1, "timeout=%i", KEEP_ALIVE_TIMEOUT);
+
+        offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "connection: %s\n", "keep-alive");
+        offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "keep-alive: %s\n", headerKeepAliveValue);
+    } else {
+
+        connection->keepAlive = false;
+        offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "connection: close\n");
     }
 
-    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "content-length: %lu\n", response->size);
+    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "content-length: %lu\n", connection->bodyLength);
     offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "content-type: %s\n", mimeType);
     offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "date: %s\n", currentDate);
     offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "last-modified: %s\n", lastModifiedDate);
@@ -203,30 +140,83 @@ void sendResponse(struct Response *response, struct Request *request, int client
     // sprintf(responseHeader + strlen(responseHeader), "cache-control: %s\n\n", "private, max-age=86400, must-revalidate, stale-if-error=86400");
     offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "cache-control: %s\n\n", "private, no-cache, no-store, must-revalidate");
 
-    sendAll(clientFd, responseHeader, offset);
-
-    off_t bodyOffset = 0;
-    ssize_t sendBodyLen = sendfile(clientFd, response->bodyFd, &bodyOffset, response->size);
-    if (sendBodyLen == -1) {
-        logError("sendfile() failed: %s", response->absolutePath);
-    }
-    close(response->bodyFd);
+    // save headers in the buffer
+    connection->responseBufferHeadersOffset = 0;
+    connection->responseBufferHeadersLength = offset;
+    connection->responseBufferHeaders = strdup(responseHeader);
 }
 
-size_t sendAll(int fd, const void *buffer, size_t count) {
-    size_t left_to_write = count;
-    while (left_to_write > 0) {
-        size_t written = send(fd, buffer, count, 0);
-        if (written == -1) {
+void sendResponseHeaders(struct QueueConnectionElementType *connection) {
+    while (1) {
+        ssize_t bytesSend = send(connection->clientFd, connection->responseBufferHeaders + connection->responseBufferHeadersOffset, connection->responseBufferHeadersLength - connection->responseBufferHeadersOffset, 0);
+        if (bytesSend < 0) {
             if (errno == EINTR) {
-                // The send call was interrupted by a signal
-                return 0;
+                continue;
             }
-            return -1;
-        } else {
-            left_to_write -= written;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (connection->responseBufferHeadersOffset == connection->responseBufferHeadersLength) {
+                    connection->state = STATE_CONNECTION_SEND_BODY;
+                    connection->responseBufferHeadersOffset = 0;
+                    return;
+                }
+                return;
+            }
+            logError("send() response failed. DoneForClose");
+            connection->doneForClose = 1;
+            return;
+        }
+        connection->responseBufferHeadersOffset += bytesSend;
+        if (bytesSend == 0) {
+            logDebug("0 bytes send, client disconnected");
+            connection->doneForClose = 1;
+            return;
+        }
+        if (connection->responseBufferHeadersOffset == connection->responseBufferHeadersLength) {
+            connection->state = STATE_CONNECTION_SEND_BODY;
+            connection->responseBufferHeadersOffset = 0;
+            return;
         }
     }
+}
 
-    return count;
+void sendResponseFile(struct QueueConnectionElementType *connection) {
+
+    if (connection->bodyFd == -1 || connection->bodyLength <= 0) {
+        connection->state = STATE_CONNECTION_DONE;
+        connection->bodyOffset = 0;
+        return;
+    }
+    while (1) {
+        ssize_t bytesSend = sendfile(connection->clientFd, connection->bodyFd, &connection->bodyOffset, connection->bodyLength - connection->bodyOffset);
+        if (bytesSend < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (connection->bodyOffset == connection->bodyLength) {
+                    connection->state = STATE_CONNECTION_DONE;
+                    connection->bodyOffset = 0;
+                    close(connection->bodyFd);
+                    connection->bodyFd = -1;
+                    return;
+                }
+                return;
+            }
+            logError("sendfile() response failed. DoneForClose");
+            connection->doneForClose = 1;
+            return;
+        }
+        if (bytesSend == 0) {
+            logDebug("0 bytes send with sendfile, client disconnected");
+            connection->doneForClose = 1;
+            return;
+        }
+        if (connection->bodyOffset == connection->bodyLength) {
+            connection->state = STATE_CONNECTION_DONE;
+            connection->bodyOffset = 0;
+            close(connection->bodyFd);
+            connection->bodyFd = -1;
+            return;
+        }
+    }
 }

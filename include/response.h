@@ -4,33 +4,17 @@
 #include <sys/types.h> // for size_t
 #include <time.h>      // for strftime() and time_t
 
-#include "header.h"
-#include "http_status_code.h"
-#include "request.h"
+#include "queue_connections.h"
 
-struct Response {
-    char *protocolVersion;
-    char *absolutePath;
-    enum HTTP_STATUS_CODE statusCode;
-    struct Header *headers;
-    size_t size;
-    time_t lastModified;
-    int bodyFd;
-    bool closeConnection;
-};
 
-void printResponse(struct Response *response);
 
-void freeResponse(struct Response *response);
-
-struct Response *makeResponse(struct Request *request, char *htmlDir);
-
-void sendResponse(struct Response *response, struct Request *request, int clientFd);
-
-size_t sendAll(int fd, const void *buffer, size_t count);
+void makeResponse(struct QueueConnectionElementType *connection);
+void sendResponseHeaders(struct QueueConnectionElementType *connection);
+void sendResponseFile(struct QueueConnectionElementType *connection);
 
 void helloResponse(int clientFd);
 void unsupportedProtocolResponse(int clientFd, char *protocolVersion);
+void badRequestResponse(int clientFd);
 void tooManyRequestResponse(int clientFd);
 
 static char *helloResponseTemplate =
