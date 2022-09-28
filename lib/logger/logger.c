@@ -1,7 +1,6 @@
 #include <aio.h>
-#include <errno.h> // for errno
+#include <errno.h>
 #include <fcntl.h> // for open() nonblocking socket
-#include <fcntl.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
