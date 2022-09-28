@@ -1,6 +1,6 @@
 # Undefined Behavior Server 👀
 
-**Undefined Behavior Server** is a HTTP 1.1 server made with **Epoll** and **Pthread** for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`)
+**Undefined Behavior Server** is a HTTP 1.1 server made with **Epoll** and **Pthread** for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`). Well, I lie, because in the logging library I wanted to try `aio_write`, to write asynchronously the logs and although I free the memory, Valgrind shows me some losses, but if I switch back to the previous function to write the logs, then I don't have any loss. I don't know why, I will try to fix it later. https://github.com/chiqui3d/ub-server/blob/main/lib/logger/logger.c#L187
 
 At first it started as a single test with Epoll, but I have continued practising and finally got a small server serving static content with epoll and pthread https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_thread_epoll.c. Currently, each thread has its own `epollFd`, I still have to practice a bit more with **mutex** to be able to share `epollFd` between all threads, and the priority queue does not receive any **race conditions**.
 
