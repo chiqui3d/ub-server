@@ -75,6 +75,8 @@ void handleEpoll(int socketServerFd, int epollFd, struct epoll_event *events, st
                 int clientFd = events[i].data.fd;
                 struct QueueConnectionElementType *connection = getConnectionByFd(queueConnections, clientFd);
 
+                // TODO: state machine with switch connection->state
+
                 // read request
                 if (connection->state == STATE_CONNECTION_RECV) {
                     //logDebug("recvRequest with fd %i", clientFd);
@@ -175,7 +177,7 @@ void handleEpoll(int socketServerFd, int epollFd, struct epoll_event *events, st
         // printQueueConnections(queueConnections);
     }
 
-    logDebug("kill sigIntReceived in the thread %ld", threadId);
+    logDebug("sigIntReceived in the thread %ld", threadId);
     unsigned short int i;
     for (i = 0; i < queueConnections->currentSize; i++) {
         freeConnection(&queueConnections->connections[i]);
