@@ -3,14 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "request.h"
 #include "../lib/color/color.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "helper.h"
-#include "server.h"
 #include "options.h"
-
+#include "request.h"
+#include "server.h"
 
 bool isRequestComplete(char *buffer) {
     char *endOfRequest = strstr(buffer, "\r\n\r\n");
@@ -40,18 +39,23 @@ void recvRequest(struct QueueConnectionElementType *connection) {
                 return;
             }
             logError("recv() request failed. DoneForClose");
-            connection->doneForClose = 1;
+            connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
             return;
         }
 
         if (bytesRead == 0) {
             logDebug("0 bytes read, client disconnected");
-            connection->doneForClose = 1;
+            connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
             return;
         }
-
+         // TODO: 413 Entity too large
         connection->requestBufferOffset += bytesRead;
-        // TODO: 413 Entity too large
+        if (isRequestComplete(connection->requestBuffer)) {
+            connection->requestBuffer[connection->requestBufferOffset] = 0;
+            connection->state = STATE_CONNECTION_SEND_HEADERS;
+            connection->requestBufferOffset = 0;
+            return;
+        }
     }
 }
 
@@ -83,7 +87,7 @@ bool processRequest(struct QueueConnectionElementType *connection) {
 
     strncpy(requestLine, buffer, firstLineLength);
     requestLine[firstLineLength] = '\0';
-    //printf("requestLine:\n%s\n", requestLine);
+    // printf("requestLine:\n%s\n", requestLine);
 
     // buffer without first line and CRLF
     buffer += firstLineLength + 2;
@@ -116,7 +120,7 @@ bool processRequest(struct QueueConnectionElementType *connection) {
     snprintf(absolutePath, absolutePathSize, "%s%s", OPTIONS.htmlDir, realPath);
     connection->absolutePath = strdup(absolutePath);
 
-    //printf("buffer:\n%s\n", buffer);
+    // printf("buffer:\n%s\n", buffer);
 
     char *body = strstr(buffer, "\r\n\r\n"); // double CRLF pair to end of headers
     if (NULL == body) {
@@ -130,14 +134,13 @@ bool processRequest(struct QueueConnectionElementType *connection) {
         connection->requestBody = strdup(body);
     }
 
-    //printf("body:\n%s\n", body);
+    // printf("body:\n%s\n", body);
 
     size_t headersSize = body - connection->requestBuffer - firstLineLength;
     char headersString[headersSize + 1];
     strncpy(headersString, connection->requestBuffer + firstLineLength, headersSize);
     headersString[headersSize] = '\0';
-    //printf("headersString:\n%s\n", headersString);
-   
+    // printf("headersString:\n%s\n", headersString);
 
     char *header = strtok(headersString, "\r\n");
     while (header != NULL) {
@@ -173,7 +176,6 @@ bool processRequest(struct QueueConnectionElementType *connection) {
         header = strtok(NULL, "\r\n");
     }
 
-
     return true;
 }
 
@@ -207,8 +209,8 @@ void logRequest(struct QueueConnectionElementType connection) {
 
     if (host != NULL) {
         // TODO: not use host header for URL
-        size_t URLLen = snprintf(NULL, 0, "%s%s%s%s",connection.scheme, "://", host, connection.path);
-        snprintf(URL, URLLen + 1, "%s%s%s%s", connection.scheme, "://", host,connection.path);
+        size_t URLLen = snprintf(NULL, 0, "%s%s%s%s", connection.scheme, "://", host, connection.path);
+        snprintf(URL, URLLen + 1, "%s%s%s%s", connection.scheme, "://", host, connection.path);
     } else if (connection.path != NULL) {
         strCopySafe(URL, connection.path);
     } else {

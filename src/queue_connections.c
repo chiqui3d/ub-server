@@ -20,11 +20,12 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "queue_connections.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "header.h"
 #include "helper.h"
-#include "queue_connections.h"
+
 
 struct QueueConnectionsType createQueueConnections() {
     struct QueueConnectionsType queueConnections;
@@ -265,7 +266,6 @@ struct QueueConnectionElementType emptyConnection() {
     connection.responseBufferHeadersOffset = 0;
     connection.path = NULL;
     connection.absolutePath = NULL;
-    connection.doneForClose = false;
     connection.keepAlive = false;
     connection.method = METHOD_GET;
     connection.responseStatusCode = HTTP_STATUS_OK;
@@ -281,7 +281,6 @@ void printConnection(struct QueueConnectionElementType connection) {
     logDebug("Connection fd %d,"
              " bodyFd %d,"
              " state %d,"
-             " doneForClose %d,"
              " keepAlive %d,"
              " method %d,"
              " responseStatusCode %d,"
@@ -289,7 +288,6 @@ void printConnection(struct QueueConnectionElementType connection) {
              connection.clientFd,
              connection.bodyFd,
              connection.state,
-             connection.doneForClose,
              connection.keepAlive,
              connection.method,
              connection.responseStatusCode,

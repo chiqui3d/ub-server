@@ -8,12 +8,12 @@
 #include <sys/socket.h>   // for send()
 #include <unistd.h>       // for close()
 
-#include "response.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "header.h"
 #include "helper.h"
 #include "options.h"
+#include "response.h"
 #include "server.h"
 
 void unsupportedProtocolResponse(int clientFd, char *protocolVersion) {
@@ -162,13 +162,13 @@ void sendResponseHeaders(struct QueueConnectionElementType *connection) {
                 return;
             }
             logError("send() response failed. DoneForClose");
-            connection->doneForClose = 1;
+            connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
             return;
         }
         connection->responseBufferHeadersOffset += bytesSend;
         if (bytesSend == 0) {
             logDebug("0 bytes send, client disconnected");
-            connection->doneForClose = 1;
+            connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
             return;
         }
         if (connection->responseBufferHeadersOffset == connection->responseBufferHeadersLength) {
@@ -181,7 +181,7 @@ void sendResponseHeaders(struct QueueConnectionElementType *connection) {
 
 void sendResponseFile(struct QueueConnectionElementType *connection) {
 
-    if (connection->bodyFd == -1 || connection->bodyLength <= 0) {
+    if (connection->bodyFd == -1) {
         connection->state = STATE_CONNECTION_DONE;
         connection->bodyOffset = 0;
         return;
@@ -203,12 +203,12 @@ void sendResponseFile(struct QueueConnectionElementType *connection) {
                 return;
             }
             logError("sendfile() response failed. DoneForClose");
-            connection->doneForClose = 1;
+            connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
             return;
         }
         if (bytesSend == 0) {
             logDebug("0 bytes send with sendfile, client disconnected");
-            connection->doneForClose = 1;
+            connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
             return;
         }
         if (connection->bodyOffset == connection->bodyLength) {

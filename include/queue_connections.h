@@ -23,8 +23,9 @@ static const char *methodsList[] = { "GET", "POST", "PUT", "PATCH", "DELETE", "H
 enum stateConnection {
     STATE_CONNECTION_RECV, // receive data
     STATE_CONNECTION_SEND_HEADERS, // send headers
-    STATE_CONNECTION_SEND_BODY, // send body
-    STATE_CONNECTION_DONE // done
+    STATE_CONNECTION_SEND_BODY, // send body with sendfile
+    STATE_CONNECTION_DONE, // done
+    STATE_CONNECTION_DONE_FOR_CLOSE // done close the connection
 };
 
 struct QueueConnectionElementType {
@@ -34,7 +35,6 @@ struct QueueConnectionElementType {
     char *requestBuffer;
     size_t requestBufferLength;
     size_t requestBufferOffset;
-    bool doneForClose;
     bool keepAlive;
     char *responseBufferHeaders;
     size_t responseBufferHeadersLength;

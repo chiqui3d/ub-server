@@ -66,7 +66,7 @@ void handleEpoll(int socketServerFd, int epollFd, struct epoll_event *events, st
         }
         for (i = 0; i < readyEventClients; i++) {
             if (events[i].data.fd == socketServerFd) {
-                logDebug("Accepting new connection in the thread %ld", threadId);
+                // logDebug("Accepting new connection in the thread %ld", threadId);
                 //  pthread_mutex_lock(&threadDataMutex);
                 acceptEpollConnection(epollFd, socketServerFd, EPOLLIN | EPOLLET);
                 // pthread_mutex_unlock(&threadDataMutex);
@@ -75,81 +75,102 @@ void handleEpoll(int socketServerFd, int epollFd, struct epoll_event *events, st
                 int clientFd = events[i].data.fd;
                 struct QueueConnectionElementType *connection = getConnectionByFd(queueConnections, clientFd);
 
-                // simple state machine
-                bool repeat = true;
-                do {
-                    switch (connection->state) {
-                        case STATE_CONNECTION_RECV: {
-                            logDebug("STATE_CONNECTION_RECV with fd %i", clientFd);
-                            recvRequest(connection);
-                            break;
-                        }
-                        case STATE_CONNECTION_SEND_HEADERS: {
-                            logDebug("STATE_CONNECTION_SEND_HEADERS with fd %i", clientFd);
-                            if (connection->requestHeaders == NULL) {
-                                logDebug("processRequest with fd %i", clientFd);
-                                bool isValidRequest = processRequest(connection);
+                // TODO: state machine with switch connection->state
 
-
-                                if (!isValidRequest) {
-                                    logDebug("badRequestResponse with fd %i", clientFd);
-                                    badRequestResponse(clientFd);
-                                    logRequest(*connection);
-                                    connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
-                                    break;
-                                }
-                                // check supported protocol
-                                char *protocol = connection->protocolVersion;
-                                if (strcmp(protocol, "HTTP/1.0") != 0 && strcmp(protocol, "HTTP/1.1") != 0) {
-                                    unsupportedProtocolResponse(clientFd, protocol);
-                                    logRequest(*connection);
-                                    connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
-                                    break;
-                                }
-
-                                // hello response
-                                if (strcmp(connection->path, "/hello") == 0) {
-                                    helloResponse(clientFd);
-                                    logRequest(*connection);
-                                    connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
-                                    break;
-                                }
-                            }
-                            if (connection->responseBufferHeaders == NULL) {
-                                makeResponse(connection);
-                            }
-
-                            sendResponseHeaders(connection);
-                            break;
-                        }
-                        case STATE_CONNECTION_SEND_BODY: {
-                            logDebug("STATE_CONNECTION_SEND_BODY with fd %i", clientFd);
-                            sendResponseFile(connection);
-                            break;
-                        }
-                        case STATE_CONNECTION_DONE: {
-                            logDebug("STATE_CONNECTION_DONE with fd %i", clientFd);
-                            logRequest(*connection);
-                            if (connection->keepAlive == true) {
-                                // rearm the file descriptor with a new event mask
-                                // modClient(epollFd, clientFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
-                                updateQueueConnection(queueConnections, clientFd);
-                                repeat = false;
-                            } else {
-                                connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
-                            }
-                            break;
-                        }
-                        case STATE_CONNECTION_DONE_FOR_CLOSE: {
-                            logDebug("STATE_CONNECTION_DONE_FOR_CLOSE with fd %i", clientFd);
-                            dequeueConnectionByFd(queueConnections, clientFd);
-                            closeEpollClient(epollFd, clientFd);
-                            repeat = false;
-                            break;
-                        }
-                       
+                // read request
+                if (connection->state == STATE_CONNECTION_RECV) {
+                    // logDebug("recvRequest with fd %i", clientFd);
+                    recvRequest(connection);
+                    if (connection->doneForClose) {
+                        logDebug("Close by recvRequest with fd %i", clientFd);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
                     }
-                } while (repeat);
+                }
+                // rearm the client, so we can receive more data
+                if (connection->state == STATE_CONNECTION_RECV) {
+                    logDebug("continue recvRequest with fd %i", clientFd);
+                    // modEpollClient(epollFd, clientFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
+                    continue;
+                }
+
+                if (connection->requestHeaders == NULL) {
+                    // logDebug("processRequest with fd %i", clientFd);
+                    bool isValidRequest = processRequest(connection);
+
+                    if (!isValidRequest) {
+                        logDebug("badRequestResponse with fd %i", clientFd);
+                        badRequestResponse(clientFd);
+                        logRequest(*connection);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+                    // check supported protocol
+                    char *protocol = connection->protocolVersion;
+                    if (strcmp(protocol, "HTTP/1.0") != 0 && strcmp(protocol, "HTTP/1.1") != 0) {
+                        unsupportedProtocolResponse(clientFd, protocol);
+                        logRequest(*connection);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+
+                    // TODO: Router system
+                    if (strcmp(connection->path, "/hello") == 0) {
+                        helloResponse(clientFd);
+                        logRequest(*connection);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+                }
+
+                // make response and response headers buffer
+                if (connection->state == STATE_CONNECTION_SEND_HEADERS && connection->responseBufferHeaders == NULL) {
+                    // make response
+                    // logDebug("makeResponse fd %i", clientFd);
+                    makeResponse(connection);
+                }
+
+                if (connection->state == STATE_CONNECTION_SEND_HEADERS) {
+                    // logDebug("sendResponseHeaders with fd %i", clientFd);
+                    sendResponseHeaders(connection);
+                    if (connection->doneForClose) {
+                        logDebug("Close by sendResponseHeaders with fd %i", clientFd);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+                }
+
+                if (connection->state == STATE_CONNECTION_SEND_HEADERS) {
+                    logDebug("Continue sendResponseHeaders with fd %i", clientFd);
+                    // modEpollClient(epollFd, clientFd, EPOLLOUT | EPOLLET | EPOLLONESHOT);
+                    continue;
+                }
+
+                if (connection->state == STATE_CONNECTION_SEND_BODY) {
+                    // logDebug("sendResponseFile with fd %i", clientFd);
+                    sendResponseFile(connection);
+                    if (connection->doneForClose) {
+                        logDebug("Close by sendResponseFile with fd %i", clientFd);
+                        dequeueConnectionByFd(queueConnections, clientFd);
+                        closeEpollClient(epollFd, clientFd);
+                        continue;
+                    }
+                }
+
+                logRequest(*connection);
+                if (connection->keepAlive == true) {
+                    // rearm the file descriptor with a new event mask
+                    // modClient(epollFd, clientFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
+                    updateQueueConnection(queueConnections, clientFd);
+                } else {
+                    dequeueConnectionByFd(queueConnections, clientFd);
+                    closeEpollClient(epollFd, clientFd);
+                }
             }
         }
 
