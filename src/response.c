@@ -159,6 +159,7 @@ void sendResponseHeaders(struct QueueConnectionElementType *connection) {
                     connection->responseBufferHeadersOffset = 0;
                     return;
                 }
+                logDebug("sendResponseHeaders EWOULDBLOCK|EAGAIN");
                 return;
             }
             logError("send() response failed. DoneForClose");
@@ -200,6 +201,7 @@ void sendResponseFile(struct QueueConnectionElementType *connection) {
                     connection->bodyFd = -1;
                     return;
                 }
+                logDebug("sendResponseFile EWOULDBLOCK|EAGAIN");
                 return;
             }
             logError("sendfile() response failed. DoneForClose");

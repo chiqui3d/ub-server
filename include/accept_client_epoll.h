@@ -8,7 +8,7 @@
 #include "queue_connections.h"
 
 void handleEpollFacade(int socketServerFd);// facade for one epollFd per thread
-void handleEpoll(int socketServerFd, int epollFd, struct epoll_event *events, struct QueueConnectionsType *queueConnections);
+void handleEpoll(int socketServerFd, int epollFd);
 void acceptEpollConnection(int epollFd, int socketServerFd, int events);
 
 struct epoll_event buildEpollEvent(int events, int fd);

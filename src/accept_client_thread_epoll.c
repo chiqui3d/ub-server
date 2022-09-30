@@ -26,6 +26,7 @@
 struct threadData {
     pthread_t thread;
     int socketFd;
+    int epollFd;
 };
 
 void acceptClientsThreadEpoll(int socketServerFd) {
@@ -36,10 +37,17 @@ void acceptClientsThreadEpoll(int socketServerFd) {
     }
     struct threadData threads[nThreads];
 
+    int epollFd = epoll_create1(0);
+    if (epollFd < 0) {
+        die("epoll_create failed");
+    }
+    addEpollClient(epollFd, socketServerFd, 0);
+
     // create threads
     int i;
     for (i = 0; i < nThreads; i++) {
         threads[i].socketFd = socketServerFd;
+        threads[i].epollFd = epollFd;
         pthread_create(&threads[i].thread, NULL, workThreadEpoll, (void *)&threads[i]);
         pthread_detach(threads[i].thread);
     }
@@ -59,7 +67,7 @@ void acceptClientsThreadEpoll(int socketServerFd) {
 void *workThreadEpoll(void *threadDataArg) {
     struct threadData *threadData = (struct threadData *)threadDataArg;
 
-    handleEpollFacade(threadData->socketFd);
+    handleEpoll(threadData->socketFd, threadData->epollFd);
 
     return NULL;
 }
