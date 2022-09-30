@@ -16,7 +16,6 @@
 #include "response.h"
 #include "server.h"
 
-
 void handleEpoll(int socketServerFd, int epollFd) {
 
     // Only one event array and priority queue per thread
@@ -35,12 +34,18 @@ void handleEpoll(int socketServerFd, int epollFd) {
                 timeout = (now - firstConnectionQueueElement->priorityTime) * 1000;
             }
             // check for CLOSE client connection by time_t
-            while (firstConnectionQueueElement != NULL && firstConnectionQueueElement->clientFd != 0 && difftime(now, firstConnectionQueueElement->priorityTime) >= KEEP_ALIVE_TIMEOUT) {
-                logDebug(RED "Start dequeue on thread %ld, fd %i" RESET, threadId, firstConnectionQueueElement->clientFd);
+            while (firstConnectionQueueElement != NULL && firstConnectionQueueElement->clientFd != 0
+                   && difftime(now, firstConnectionQueueElement->priorityTime) >= KEEP_ALIVE_TIMEOUT) {
+                logDebug(
+                    RED "Start dequeue on thread %ld, fd %i" RESET, threadId, firstConnectionQueueElement->clientFd);
                 int tempClientFd = firstConnectionQueueElement->clientFd;
                 char date[DATETIME_HELPER_SIZE];
                 timeToDatetimeString(firstConnectionQueueElement->priorityTime, date);
-                logDebug("Close by timeout with thread %ld, fd %i tempFd %i, dateTime %s", threadId, firstConnectionQueueElement->clientFd, tempClientFd, date);
+                logDebug("Close by timeout with thread %ld, fd %i tempFd %i, dateTime %s",
+                         threadId,
+                         firstConnectionQueueElement->clientFd,
+                         tempClientFd,
+                         date);
                 if (existsConnection(&queueConnections, tempClientFd)) {
                     dequeueConnectionByFd(&queueConnections, tempClientFd);
                     closeEpollClient(epollFd, tempClientFd);
@@ -177,7 +182,8 @@ void acceptEpollConnection(int epollFd, int socketServerFd, int events) {
         socklen_t client_address_len = sizeof(client_address);
         int clientFd = accept(socketServerFd, (struct sockaddr *)&client_address, &client_address_len);
         // alternative to makeSocketNonBlocking function with fcntl, we save a call to the system
-        // int client_fd = accept4(socket_server_fd, (struct sockaddr *)&client_address, (socklen_t *)&client_address_len, SOCK_NONBLOCK);
+        // int client_fd = accept4(socket_server_fd, (struct sockaddr *)&client_address, (socklen_t
+        // *)&client_address_len, SOCK_NONBLOCK);
         if (clientFd < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
                 logWarning("accept() failed");
@@ -185,7 +191,10 @@ void acceptEpollConnection(int epollFd, int socketServerFd, int events) {
             break;
         }
 
-        logDebug("Connect with the client %d %s:%d", clientFd, inet_ntoa(client_address.sin_addr), htons(client_address.sin_port));
+        logDebug("Connect with the client %d %s:%d",
+                 clientFd,
+                 inet_ntoa(client_address.sin_addr),
+                 htons(client_address.sin_port));
         makeSocketNonBlocking(clientFd);
         addEpollClient(epollFd, clientFd, events);
     }
