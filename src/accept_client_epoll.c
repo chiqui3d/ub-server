@@ -19,6 +19,7 @@
 
 void handleEpoll(int socketServerFd, int epollFd) {
 
+    // Only one event array and priority queue per thread
     struct epoll_event events[MAX_EPOLL_EVENTS];
     struct QueueConnectionsType queueConnections = createQueueConnections();
 
@@ -67,6 +68,7 @@ void handleEpoll(int socketServerFd, int epollFd) {
                 int clientFd = events[i].data.fd;
                 struct QueueConnectionElementType *connection = getConnectionOrCreateByFd(&queueConnections, clientFd);
 
+                // simple state machine
                 bool repeat;
                 do {
                     repeat = true;
@@ -123,6 +125,7 @@ void handleEpoll(int socketServerFd, int epollFd) {
                             logRequest(*connection);
                             if (connection->keepAlive == true) {
                                 // rearm the file descriptor with a new event mask
+                                // EPOLL_CTL_MOD with EPOLLONESHOT, only when the event is full processed
                                 if (existsConnection(&queueConnections, clientFd)) {
                                     updateQueueConnection(&queueConnections, clientFd);
                                     modEpollClient(epollFd, clientFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
