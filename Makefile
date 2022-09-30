@@ -82,7 +82,7 @@ test-request: $(BUILDDIR)/test-request.o
 $(BUILDDIR)/test-request.o: tests/request.c FORCE
 	$(CC) $(CFLAGS) -c $< -o $@
 
-run-test:
+run-test-request:
 	@./$(TARGET) & ./bin/test-request
 
 .PHONY: FORCE clean
