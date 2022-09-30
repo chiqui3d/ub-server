@@ -16,18 +16,6 @@
 #include "response.h"
 #include "server.h"
 
-static pthread_mutex_t mutexQueueConnection = PTHREAD_MUTEX_INITIALIZER;
-
-void handleEpollFacade(int socketServerFd) {
-
-    int epollFd = epoll_create1(0);
-    if (epollFd < 0) {
-        die("epoll_create failed");
-    }
-    addEpollClient(epollFd, socketServerFd, 0);
-
-    handleEpoll(socketServerFd, epollFd);
-}
 
 void handleEpoll(int socketServerFd, int epollFd) {
 
@@ -73,9 +61,7 @@ void handleEpoll(int socketServerFd, int epollFd) {
         for (i = 0; i < readyEventClients; i++) {
             if (events[i].data.fd == socketServerFd) {
                 logDebug("Accepting new connection in the thread %ld", threadId);
-                // pthread_mutex_lock(&mutexQueueConnection);
                 acceptEpollConnection(epollFd, socketServerFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
-                // pthread_mutex_unlock(&mutexQueueConnection);
             } else if (events[i].events & EPOLLIN) {
 
                 int clientFd = events[i].data.fd;
@@ -171,7 +157,16 @@ void handleEpoll(int socketServerFd, int epollFd) {
     }
 }
 
-// Facade for test one epoll per thread
+void handleEpollFacade(int socketServerFd) {
+
+    int epollFd = epoll_create1(0);
+    if (epollFd < 0) {
+        die("epoll_create failed");
+    }
+    addEpollClient(epollFd, socketServerFd, 0);
+
+    handleEpoll(socketServerFd, epollFd);
+}
 
 void acceptEpollConnection(int epollFd, int socketServerFd, int events) {
     while (1) {
