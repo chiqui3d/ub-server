@@ -20,12 +20,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "queue_connections.h"
 #include "../lib/die/die.h"
 #include "../lib/logger/logger.h"
 #include "header.h"
 #include "helper.h"
-
+#include "queue_connections.h"
 
 struct QueueConnectionsType createQueueConnections() {
     struct QueueConnectionsType queueConnections;
@@ -56,8 +55,10 @@ void enqueueConnection(struct QueueConnectionsType *queueConnections, struct Que
     // assign the index of the heap to the array
     queueConnections->indexQueue[connection.clientFd] = indexQueue;
 }
-
-struct QueueConnectionElementType *getConnectionByFd(struct QueueConnectionsType *queueConnections, int fd) {
+bool existsConnection(struct QueueConnectionsType *queueConnections, int clientFd) {
+    return queueConnections->indexQueue[clientFd] != -1;
+}
+struct QueueConnectionElementType *getConnectionOrCreateByFd(struct QueueConnectionsType *queueConnections, int fd) {
 
     int index = queueConnections->indexQueue[fd];
     if (index == -1) {
@@ -72,6 +73,16 @@ struct QueueConnectionElementType *getConnectionByFd(struct QueueConnectionsType
         if (index == -1) {
             die("getConnectionByFd: bad queue index");
         }
+    }
+
+    return &queueConnections->connections[index];
+}
+
+struct QueueConnectionElementType *getConnectionByFd(struct QueueConnectionsType *queueConnections, int fd) {
+
+    int index = queueConnections->indexQueue[fd];
+    if (index == -1) {
+        return NULL;
     }
 
     return &queueConnections->connections[index];
@@ -160,7 +171,8 @@ void dequeueConnectionByFd(struct QueueConnectionsType *queueConnections, int fd
     freeConnection(&queueConnections->connections[index]);
     int fdLast = queueConnections->connections[queueConnections->currentSize - 1].clientFd;
     if (fdLast == fd) {
-        logDebug("The fd %d is the last element of the queue", fd);
+        logDebug("The fd %d is the same that last fd", fd);
+        int indexLast = queueConnections->indexQueue[fdLast];
         queueConnections->connections[queueConnections->currentSize - 1] = emptyConnection();
         queueConnections->currentSize--;
         queueConnections->indexQueue[fd] = -1;
@@ -179,13 +191,13 @@ void dequeueConnectionByFd(struct QueueConnectionsType *queueConnections, int fd
 }
 
 // Get the value of the front of the queue without removing it
-struct QueueConnectionElementType peekQueueConnections(struct QueueConnectionsType *queueConnections) {
+struct QueueConnectionElementType *peekQueueConnections(struct QueueConnectionsType *queueConnections) {
     if (queueConnections->currentSize == 0) {
         logDebug("Queue is empty");
-        return emptyConnection();
+        return NULL;
     }
 
-    return queueConnections->connections[0];
+    return &queueConnections->connections[0];
 }
 
 // shiftDown

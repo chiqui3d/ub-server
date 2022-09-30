@@ -34,27 +34,28 @@ void recvRequest(struct QueueConnectionElementType *connection) {
                     connection->requestBuffer[connection->requestBufferOffset] = 0;
                     connection->state = STATE_CONNECTION_SEND_HEADERS;
                     connection->requestBufferOffset = 0;
-                    return;
+                    break;
                 }
-                return;
+                logDebug("recvRequest EWOULDBLOCK|EAGAIN");
+                break;
             }
             logError("recv() request failed. DoneForClose");
             connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
-            return;
+            break;
         }
 
         if (bytesRead == 0) {
             logDebug("0 bytes read, client disconnected");
             connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
-            return;
+            break;
         }
-         // TODO: 413 Entity too large
+        // TODO: 413 Entity too large
         connection->requestBufferOffset += bytesRead;
         if (isRequestComplete(connection->requestBuffer)) {
             connection->requestBuffer[connection->requestBufferOffset] = 0;
             connection->state = STATE_CONNECTION_SEND_HEADERS;
             connection->requestBufferOffset = 0;
-            return;
+            break;
         }
     }
 }
