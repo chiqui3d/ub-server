@@ -41,7 +41,7 @@ Then include the flag for the compiler as you can see the MAKEFILE
 ```
 The use of this library can be seen in:
 
-    https://github.com/chiqui3d/ud-server/blob/main/src/response.c#L79
+    https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L79
 
 
 ## Compilation/Installation
