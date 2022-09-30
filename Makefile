@@ -34,7 +34,7 @@ INCLUDE_HEADERS := -I include
 
 CFLAGS   += $(INCLUDE_LIB) $(INCLUDE_HEADERS)
 
-# C source lib files dependencies
+# C source lib files
 LIBRARY_SOURCES := $(wildcard lib/**/*.c)
 # Objecst lib files dependencies
 LIBRARY_OBJECTS := $(LIBRARY_SOURCES:.c=.o)
@@ -83,8 +83,7 @@ $(BUILDDIR)/test-request.o: tests/request.c FORCE
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run-test:
-	@./$(TARGET)
-	@./bin/test-request
+	@./$(TARGET) & ./bin/test-request
 
 .PHONY: FORCE clean
 FORCE:
