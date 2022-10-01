@@ -14,7 +14,8 @@ I have also created a small library for logging and you can print the logs to a 
 
 Currently, I have downloaded a free HTML template and put it directly into the `public` directory to test it out, and it seems to work quite well.
 
-But as I said before, although it works, it still requires a lot of validation, and it is possible that it has some errors when dealing with some headers or options.
+![HTML template](https://i.imgur.com/vQSwd6S.png)
+
 
 Some headers are added manually as can be seen in the code https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L97, such as the cache header, which disabled the browser cache to avoid unexpected results during testing.
 
