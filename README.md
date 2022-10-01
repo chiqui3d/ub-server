@@ -83,7 +83,7 @@ bin/ubserver -p 3001 -a 127.0.0.1 --logger-path /home/chiqui3d/www/CS50/c/socket
 
 * [x] Add support for HTTP keep-alive connections
 * [x] Add pre-threaded (thread pool)
-* [*] Add support for compression
+* [X] Add support for compression
      * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
      * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
      * http://www.zlib.net/manual.html
