@@ -19,6 +19,8 @@ CFLAGS 	 += -pthread
 CFLAGS 	 += -DNDEBUG
 CFLAGS   += -MMD -Wall -Wextra -Wno-vla -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wshadow
 CFLAGS   += -fsanitize=signed-integer-overflow -fsanitize=undefined -fno-common
+## zlib https://stackoverflow.com/a/20206371/2046442 ##
+CFLAGS   += -lz 
 
 ## mime types ## 
 # sudo apt-get install libmagic-dev 

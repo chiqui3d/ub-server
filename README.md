@@ -2,7 +2,7 @@
 
 **Undefined Behavior Server** is a HTTP 1.1 server made with **Epoll** and **Pthread** for the practice of programming in C. Actually it works quite well, I have tested it with a HTML template. According to **Valgrind** I don't have any memory leak `valgrind --leak-check=full bin/ubserver -a 127.0.0.1 -l`). Well, I lie, because in the logging library I wanted to try `aio_write`, to write asynchronously the logs and although I free the memory, Valgrind shows me some losses, but if I switch back to the previous function to write the logs, then I don't have any loss. I don't know why, [I will try to fix it later](https://github.com/chiqui3d/ub-server/blob/main/lib/logger/logger.c#L187).
 
-At first it started as a single test with Epoll, but I have continued practising and finally got a small server serving static content with [epoll and pthread](https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_thread_epoll.c). The same epollFd is shared with all threads with the EPOLLONESHOT feature, but the event structure and priority queue is created in each thread.
+At first it started as a single test with Epoll, but I have continued practising and finally got a small server serving static content with [epoll and pthread](https://github.com/chiqui3d/ud-server/blob/main/src/accept_client_thread_epoll.c). The same epollFd is shared with all threads with the `EPOLLONESHOT` feature, but the event structure and priority queue is created in each thread.
 
 The priority queue is made with the data structure min-heap, to manage the time of the connections and to be able to add the keep-alive feature, it is also good to close the connections that are not being used for a while, testing I have realized that Chrome does not close the connections until you close the browser.
 
@@ -16,7 +16,13 @@ Currently, I have downloaded a free HTML template and put it directly into the `
 
 But as I said before, although it works, it still requires a lot of validation, and it is possible that it has some errors when dealing with some headers or options.
 
-Some headers are added manually as can be seen in the code https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L121, such as the cache header, which disabled the browser cache to avoid unexpected results during testing.
+Some headers are added manually as can be seen in the code https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L97, such as the cache header, which disabled the browser cache to avoid unexpected results during testing.
+
+## Change Log
+
+* Support for gzip compression with Zlib
+* Support for HTTP keep-alive
+* Added the `aio_write` function to write the logs asynchronously.
 
 ## Directory Structure
 
@@ -41,7 +47,7 @@ Then include the flag for the compiler as you can see the MAKEFILE
 ```
 The use of this library can be seen in:
 
-    https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L79
+    https://github.com/chiqui3d/ub-server/blob/main/src/response.c#L231
 
 
 ## Compilation/Installation
@@ -76,13 +82,14 @@ bin/ubserver -p 3001 -a 127.0.0.1 --logger-path /home/chiqui3d/www/CS50/c/socket
 
 * [x] Add support for HTTP keep-alive connections
 * [x] Add pre-threaded (thread pool)
+* [*] Add support for compression
+     * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
+     * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
+     * http://www.zlib.net/manual.html
 * [ ] URL decoding (e.g. %20 -> space)
 * [ ] Check safe url directory. Example ../../etc/passwd
 * [ ] Add support for Accept-Ranges 
      * https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests
-* [ ] Add support for compression
-     * https://www.rfc-editor.org/rfc/rfc9110.html#field.content-encoding
-     * https://www.rfc-editor.org/rfc/rfc9112#section-6.1
 * [ ] Look out for more optimizations [Institutional Coding Standard](https://yurichev.com/mirrors/C/JPL_Coding_Standard_C.pdf)
 * [ ] Add support for HTTPS
 * [ ] Add more tests

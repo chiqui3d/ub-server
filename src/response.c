@@ -1,3 +1,4 @@
+#include "zlib.h"         // for gzopen() gzip compression"
 #include <errno.h>        // for errno
 #include <fcntl.h>        // for open()
 #include <magic.h>        // for magic_open() mime type detection
@@ -30,13 +31,11 @@ void badRequestResponse(int clientFd) {
     sendAll(clientFd, badRequestResponseTemplate, strlen(badRequestResponseTemplate));
 }
 
-void helloResponse(int clientFd) {
-    sendAll(clientFd, helloResponseTemplate, strlen(helloResponseTemplate));
-}
+void helloResponse(int clientFd) { sendAll(clientFd, helloResponseTemplate, strlen(helloResponseTemplate)); }
 
 void makeResponse(struct QueueConnectionElementType *connection) {
 
-    /******* 1. make response body *******/
+    /******* 1. Get file fd (bodyFd) *******/
     struct stat statResponseBodyFd;
     int bodyFd = open(connection->absolutePath, O_RDONLY);
     if (bodyFd == -1) {
@@ -68,40 +67,23 @@ void makeResponse(struct QueueConnectionElementType *connection) {
     connection->bodyLength = statResponseBodyFd.st_size;
     connection->bodyOffset = 0;
 
-    /******* 2. make response headers *******/
+    /** Get mime type **/
+    char mimeType[150];
+    getMimeType(connection, mimeType);
 
+    /** Generate gzip encoding **/
+    char *acceptEncodingHeader = getHeader(connection->requestHeaders, "accept-encoding");
+    if (acceptEncodingHeader != NULL && strstr(acceptEncodingHeader, "gzip") != NULL) {
+        makeContentEncoding(connection, statResponseBodyFd, mimeType);
+    }
+
+
+    /******* 2. make response headers *******/
     size_t responseHeaderSize = 1024;
     char responseHeader[responseHeaderSize];
 
     char statusCodeReason[33];
     strCopySafe(statusCodeReason, (char *)HTTP_STATUS_REASON(connection->responseStatusCode));
-
-    magic_t magic = magic_open(MAGIC_MIME_TYPE | MAGIC_PRESERVE_ATIME | MAGIC_SYMLINK);
-    // get current directory path
-    char cwd[1024];
-    if (getcwd(cwd, sizeof(cwd)) == NULL) {
-        die("getcwd() error");
-    }
-    /**
-     * Information about magic library
-     *  http://cweiske.de/tagebuch/custom-magic-db.htm
-     *  https://manpages.debian.org/testing/libmagic-dev/libmagic.3.en.html
-     *  /usr/lib/file/magic.mgc
-     *  /usr/share/misc/magic.mgc
-     **/
-    strncat(cwd, "/include/web.magic.mgc:/usr/share/misc/magic.mgc", 49);
-    if (magic_load(magic, cwd) != 0) {
-        magic_close(magic);
-        die("magic_load() error");
-    }
-    const char *magicMimeType = magic_descriptor(magic, connection->bodyFd);
-    char mimeType[150];
-    strCopySafe(mimeType, (char *)magicMimeType);
-
-    if (strcmp(mimeType, "text/") > 0) {
-        strncat(mimeType, "; charset=UTF-8", 16);
-    }
-    magic_close(magic);
 
     char lastModifiedDate[100];
     struct tm *tm = localtime(&statResponseBodyFd.st_mtime);
@@ -112,7 +94,17 @@ void makeResponse(struct QueueConnectionElementType *connection) {
     tm = localtime(&now);
     strftime(currentDate, 100, "%a, %d %b %Y %H:%M:%S GMT", tm);
 
-    size_t offset = snprintf(responseHeader, responseHeaderSize, "%s %u %s\n", connection->protocolVersion, connection->responseStatusCode, statusCodeReason);
+    size_t offset = snprintf(responseHeader,
+                             responseHeaderSize,
+                             "%s %u %s\n",
+                             connection->protocolVersion,
+                             connection->responseStatusCode,
+                             statusCodeReason);
+
+    // TODO: handle Content-Encoding, hardcode for now
+    if (connection->contentEncoding == CONTENT_ENCODING_GZIP) {
+        offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "content-encoding: gzip\n");
+    }
 
     // get connection header request
     char *connectionHeader = getHeader(connection->requestHeaders, "connection");
@@ -125,20 +117,27 @@ void makeResponse(struct QueueConnectionElementType *connection) {
         snprintf(headerKeepAliveValue, lenHeaderKeepAlive + 1, "timeout=%i", KEEP_ALIVE_TIMEOUT);
 
         offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "connection: %s\n", "keep-alive");
-        offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "keep-alive: %s\n", headerKeepAliveValue);
+        offset +=
+            snprintf(responseHeader + offset, responseHeaderSize - offset, "keep-alive: %s\n", headerKeepAliveValue);
     } else {
 
         connection->keepAlive = false;
         offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "connection: close\n");
     }
 
-    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "content-length: %lu\n", connection->bodyLength);
+    offset +=
+        snprintf(responseHeader + offset, responseHeaderSize - offset, "content-length: %lu\n", connection->bodyLength);
     offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "content-type: %s\n", mimeType);
     offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "date: %s\n", currentDate);
     offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "last-modified: %s\n", lastModifiedDate);
-    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "server: %s\n", "Undefined Behaviour Server");
-    // sprintf(responseHeader + strlen(responseHeader), "cache-control: %s\n\n", "private, max-age=86400, must-revalidate, stale-if-error=86400");
-    offset += snprintf(responseHeader + offset, responseHeaderSize - offset, "cache-control: %s\n\n", "private, no-cache, no-store, must-revalidate");
+    offset +=
+        snprintf(responseHeader + offset, responseHeaderSize - offset, "server: %s\n", "Undefined Behaviour Server");
+    // sprintf(responseHeader + strlen(responseHeader), "cache-control: %s\n\n", "private, max-age=86400,
+    // must-revalidate, stale-if-error=86400");
+    offset += snprintf(responseHeader + offset,
+                       responseHeaderSize - offset,
+                       "cache-control: %s\n\n",
+                       "private, no-cache, no-store, must-revalidate");
 
     // save headers in the buffer
     connection->responseBufferHeadersOffset = 0;
@@ -148,7 +147,10 @@ void makeResponse(struct QueueConnectionElementType *connection) {
 
 void sendResponseHeaders(struct QueueConnectionElementType *connection) {
     while (1) {
-        ssize_t bytesSend = send(connection->clientFd, connection->responseBufferHeaders + connection->responseBufferHeadersOffset, connection->responseBufferHeadersLength - connection->responseBufferHeadersOffset, 0);
+        ssize_t bytesSend = send(connection->clientFd,
+                                 connection->responseBufferHeaders + connection->responseBufferHeadersOffset,
+                                 connection->responseBufferHeadersLength - connection->responseBufferHeadersOffset,
+                                 0);
         if (bytesSend < 0) {
             if (errno == EINTR) {
                 continue;
@@ -188,7 +190,10 @@ void sendResponseFile(struct QueueConnectionElementType *connection) {
         return;
     }
     while (1) {
-        ssize_t bytesSend = sendfile(connection->clientFd, connection->bodyFd, &connection->bodyOffset, connection->bodyLength - connection->bodyOffset);
+        ssize_t bytesSend = sendfile(connection->clientFd,
+                                     connection->bodyFd,
+                                     &connection->bodyOffset,
+                                     connection->bodyLength - connection->bodyOffset);
         if (bytesSend < 0) {
             if (errno == EINTR) {
                 continue;
@@ -221,4 +226,105 @@ void sendResponseFile(struct QueueConnectionElementType *connection) {
             return;
         }
     }
+}
+
+void getMimeType(struct QueueConnectionElementType *connection, char *mimeType) {
+
+    magic_t magic = magic_open(MAGIC_MIME_TYPE | MAGIC_PRESERVE_ATIME | MAGIC_SYMLINK);
+    // get current directory path
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        die("getcwd() error");
+    }
+    /**
+     * Information about magic library
+     *  http://cweiske.de/tagebuch/custom-magic-db.htm
+     *  https://manpages.debian.org/testing/libmagic-dev/libmagic.3.en.html
+     *  /usr/lib/file/magic.mgc
+     *  /usr/share/misc/magic.mgc
+     **/
+    strncat(cwd, "/include/web.magic.mgc:/usr/share/misc/magic.mgc", 49);
+    if (magic_load(magic, cwd) != 0) {
+        magic_close(magic);
+        die("magic_load() error");
+    }
+    const char *magicMimeType = magic_descriptor(magic, connection->bodyFd);
+    strCopySafe(mimeType, (char *)magicMimeType);
+
+    if (strcmp(mimeType, "text/") > 0) {
+        strncat(mimeType, "; charset=UTF-8", 16);
+    }
+    magic_close(magic);
+}
+
+void makeContentEncoding(struct QueueConnectionElementType *connection, struct stat statResponseBodyFd,
+                         char *mimeType) {
+    // get file name from absolute path
+    char *fileName = strrchr(connection->absolutePath, '/');
+    if (fileName == NULL) {
+        // TODO: Support for directory listing or index.html
+        die("File name not found in absolute path %s, possibly a directory", connection->absolutePath);
+    }
+    fileName++;
+
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        die("getcwd() error");
+    }
+
+    char relativePathFile[strlen(connection->absolutePath)];
+    strCopySafe(relativePathFile, connection->absolutePath + strlen(OPTIONS.htmlDir));
+
+    size_t relativePathLength = strlen(relativePathFile) - strlen(fileName);
+    char relativePath[relativePathLength + 1];
+    strncpy(relativePath, relativePathFile, relativePathLength);
+    relativePath[relativePathLength] = '\0';
+
+    size_t pathGzipCacheLen = snprintf(NULL, 0, "%s/cache/gzip%s", cwd, relativePath);
+    pathGzipCacheLen++;
+    char pathGzipCache[pathGzipCacheLen];
+
+    snprintf(pathGzipCache, pathGzipCacheLen, "%s/cache/gzip%s", cwd, relativePath);
+    if (makeDirectory(pathGzipCache, 755) == -1) {
+        die("Error creating directory: %s", pathGzipCache);
+    }
+
+    size_t gzipPathLen = snprintf(NULL, 0, "%s%ld-%s.gz", pathGzipCache, statResponseBodyFd.st_atime, fileName);
+    gzipPathLen++; // for null terminator
+    char gzipPath[gzipPathLen];
+    snprintf(gzipPath, gzipPathLen, "%s%ld-%s.gz", pathGzipCache, statResponseBodyFd.st_atime, fileName);
+
+    // open gzip file
+    if (access(gzipPath, F_OK) != 0) {
+        logDebug("Gzip file %s not found. Create .gz file", gzipPath);
+        gzFile gzFd = gzopen(gzipPath, "wb");
+        if (gzFd == NULL) {
+            die("Error opening gzip file %s", gzipPath);
+        }
+        // level 1-9, 1 is fastest, 9 is best compression
+        if(gzsetparams(gzFd, 6, Z_DEFAULT_STRATEGY) != Z_OK) {
+            die("Error setting gzip parameters");
+        }
+
+        // copy bodyFd to gzFd
+        char bufferEncoding[1024];
+        ssize_t bytesRead;
+        while ((bytesRead = read(connection->bodyFd, bufferEncoding, 1024)) > 0) {
+            gzwrite(gzFd, bufferEncoding, bytesRead);
+        }
+        gzclose(gzFd);
+    }
+    close(connection->bodyFd);
+    // open gzip file
+    int gzipFd = open(gzipPath, O_RDONLY);
+    if (gzipFd == -1) {
+        die("Error opening gzip file %s", gzipPath);
+    }
+    struct stat statResponseGzBodyFd;
+    // Stat the input file to obtain its size.
+    fstat(gzipFd, &statResponseGzBodyFd);
+    // set gzip header
+    connection->bodyFd = gzipFd;
+    connection->bodyLength = statResponseGzBodyFd.st_size;
+    connection->contentEncoding = CONTENT_ENCODING_GZIP;
 }

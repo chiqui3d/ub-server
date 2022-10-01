@@ -20,6 +20,8 @@ void strCopySafe(char *dest, char *src);
 char *toLower(char *str, size_t len);
 char *toUpper(char *str, size_t len);
 
+int makeDirectory(const char *file_path, mode_t mode);
+
 char *readAll(int fd, char *buffer, size_t bufferSize);
 size_t sendAll(int fd, char *buffer, size_t count);
 

@@ -6,11 +6,12 @@
 
 #include "queue_connections.h"
 
-
-
 void makeResponse(struct QueueConnectionElementType *connection);
 void sendResponseHeaders(struct QueueConnectionElementType *connection);
 void sendResponseFile(struct QueueConnectionElementType *connection);
+
+void makeContentEncoding(struct QueueConnectionElementType *connection, struct stat statResponseBodyFd, char *mimeType);
+void getMimeType(struct QueueConnectionElementType *connection, char *mimeType);
 
 void helloResponse(int clientFd);
 void unsupportedProtocolResponse(int clientFd, char *protocolVersion);
@@ -74,7 +75,6 @@ static char *notFoundResponseTemplate =
     "  <p>The requested URL %s was not found on this server.</p>\n"
     " </body>\n"
     "</html>\n";
-
 
 static char *internalServerResponseTemplate =
     "HTTP/1.1 500 Internal Server Error\n"

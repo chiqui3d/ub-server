@@ -27,6 +27,13 @@ enum stateConnection {
     STATE_CONNECTION_DONE_FOR_CLOSE
 };
 
+enum contentEncoding {
+    CONTENT_ENCODING_NONE,
+    CONTENT_ENCODING_GZIP,
+    CONTENT_ENCODING_DEFLATE,
+    CONTENT_ENCODING_BROTLI
+};
+
 struct QueueConnectionElementType {
     time_t priorityTime;
     int clientFd; // file descriptor
@@ -41,6 +48,7 @@ struct QueueConnectionElementType {
     int bodyFd;
     size_t bodyLength;
     off_t bodyOffset;
+    enum contentEncoding contentEncoding;
     char scheme[6];          // http or https
     char protocolVersion[9]; // HTTP/1.1
     enum Method method;

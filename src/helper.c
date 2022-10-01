@@ -59,6 +59,47 @@ char *toUpper(char *str, size_t len) {
     return strUpper;
 }
 
+int makeDirectory(const char *file_path, mode_t mode) {
+
+    // check if directory exists
+    struct stat sb;
+    if (stat(file_path, &sb) == 0 && S_ISDIR(sb.st_mode)) {
+        return 0;
+    }
+
+    // create directories
+
+    // copy file path to tmp variable
+    char tmp[CHAR_MAX];
+    strcpy(tmp, file_path);
+
+    size_t len = strlen(tmp);
+    if (tmp[len - 1] == '/') {
+        tmp[len - 1] = 0;
+    }
+
+    char *p = NULL;
+    // Adding one to a char to tmp places one character in front of the previous one.
+    for (p = tmp + 1; *p; p++) {
+        // printf("tmp:%s p: %s - %c\n",tmp, p, *p);
+        if (*p == '/') {
+            *p = 0; // terminate the string at the first '/' then for /var/log/ub-server we have /var when the p is at /log/ub-server
+            // printf("TMP: %s\n", tmp);
+            if (mkdir(tmp, mode) == -1 && errno != EEXIST) {
+                return -1;
+            }
+            *p = '/'; // restore the '/'
+        }
+    }
+
+    // we create the final directory of the path, because we remove the last '/'.
+    if (mkdir(tmp, mode) == -1 && errno != EEXIST) {
+        return -1;
+    }
+
+    return 0;
+}
+
 char *readAll(int fd, char *buffer, size_t bufferSize) {
 
     int totalBytesRead = 0;

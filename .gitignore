@@ -5,6 +5,7 @@ strace.txt
 .idea
 *.o
 *.d
+*.gz
 lib/*/*.d
 lib/*/*.o
 compile_commands.json
