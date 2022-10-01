@@ -21,7 +21,7 @@ Some headers are added manually as can be seen in the code https://github.com/ch
 
 ## Change Log
 
-* Support for gzip compression with Zlib
+* Support for gzip compression with Zlib. Only if accept-encoding header is present in the request.
 * Support for HTTP keep-alive
 * Added the `aio_write` function to write the logs asynchronously.
 
