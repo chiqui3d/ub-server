@@ -77,7 +77,6 @@ void makeResponse(struct QueueConnectionElementType *connection) {
         makeContentEncoding(connection, statResponseBodyFd, mimeType);
     }
 
-
     /******* 2. make response headers *******/
     size_t responseHeaderSize = 1024;
     char responseHeader[responseHeaderSize];

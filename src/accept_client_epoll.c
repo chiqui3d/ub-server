@@ -16,6 +16,8 @@
 #include "response.h"
 #include "server.h"
 
+static pthread_mutex_t queueMutex = PTHREAD_MUTEX_INITIALIZER;
+
 void handleEpoll(int socketServerFd, int epollFd) {
 
     // Only one event array and priority queue per thread
@@ -46,10 +48,12 @@ void handleEpoll(int socketServerFd, int epollFd) {
                          firstConnectionQueueElement->clientFd,
                          tempClientFd,
                          date);
+                pthread_mutex_lock(&queueMutex);
                 if (existsConnection(&queueConnections, tempClientFd)) {
                     dequeueConnectionByFd(&queueConnections, tempClientFd);
                     closeEpollClient(epollFd, tempClientFd);
                 }
+                pthread_mutex_unlock(&queueMutex);
                 firstConnectionQueueElement = peekQueueConnections(&queueConnections);
             }
         }
@@ -131,10 +135,12 @@ void handleEpoll(int socketServerFd, int epollFd) {
                             if (connection->keepAlive == true) {
                                 // rearm the file descriptor with a new event mask
                                 // EPOLL_CTL_MOD with EPOLLONESHOT, only when the event is full processed
+                                pthread_mutex_lock(&queueMutex);
                                 if (existsConnection(&queueConnections, clientFd)) {
                                     updateQueueConnection(&queueConnections, clientFd);
                                     modEpollClient(epollFd, clientFd, EPOLLIN | EPOLLET | EPOLLONESHOT);
                                 }
+                                pthread_mutex_unlock(&queueMutex);
                                 repeat = false;
                             } else {
                                 connection->state = STATE_CONNECTION_DONE_FOR_CLOSE;
@@ -211,7 +217,7 @@ void closeEpollClient(int epollFd, int clientFd) {
     // logDebug("Delete file descriptor %d from epoll", clientFd);
     int s = epoll_ctl(epollFd, EPOLL_CTL_DEL, clientFd, NULL);
     if (s == -1 && errno != EBADF) {
-        die("EPOLL_CTL_DEL failed");
+        die("EPOLL_CTL_DEL failed with the clientFd %d", clientFd);
     }
     logDebug("Closed connection on descriptor %d", clientFd);
     close(clientFd);
